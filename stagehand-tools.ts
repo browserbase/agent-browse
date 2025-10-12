@@ -1,85 +1,16 @@
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { Stagehand } from '@browserbasehq/stagehand';
-import { existsSync, cpSync, mkdirSync } from 'fs';
-import { platform } from 'os';
+import { existsSync, mkdirSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
+import { findLocalChrome } from './browser-utils.js';
 
 // Lazy loading of Stagehand instance
 let stagehandInstance: Stagehand | null = null;
 let currentPage: any = null;
 let chromeProcess: ChildProcess | null = null;
 let tempUserDataDir: string | null = null;
-
-/**
- * Finds the local Chrome installation path based on the operating system
- * @returns The path to the Chrome executable, or undefined if not found
- */
-function findLocalChrome(): string | undefined {
-  const systemPlatform = platform();
-  const chromePaths: string[] = [];
-
-  if (systemPlatform === 'darwin') {
-    // macOS paths
-    chromePaths.push(
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      `${process.env.HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`,
-      `${process.env.HOME}/Applications/Chromium.app/Contents/MacOS/Chromium`
-    );
-  } else if (systemPlatform === 'win32') {
-    // Windows paths
-    chromePaths.push(
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
-      `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
-      `${process.env['PROGRAMFILES(X86)']}\\Google\\Chrome\\Application\\chrome.exe`,
-      'C:\\Program Files\\Chromium\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Chromium\\Application\\chrome.exe'
-    );
-  } else {
-    // Linux paths
-    chromePaths.push(
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/snap/bin/chromium',
-      '/usr/local/bin/google-chrome',
-      '/usr/local/bin/chromium',
-      '/opt/google/chrome/chrome',
-      '/opt/google/chrome/google-chrome'
-    );
-  }
-
-  // Find the first existing Chrome installation
-  for (const path of chromePaths) {
-    if (path && existsSync(path)) {
-      return path;
-    }
-  }
-
-  return undefined;
-}
-
-/**
- * Gets the Chrome user data directory path based on the operating system
- * @returns The path to Chrome's user data directory, or undefined if not found
- */
-function getChromeUserDataDir(): string | undefined {
-  const systemPlatform = platform();
-
-  if (systemPlatform === 'darwin') {
-    return `${process.env.HOME}/Library/Application Support/Google/Chrome`;
-  } else if (systemPlatform === 'win32') {
-    return `${process.env.LOCALAPPDATA}\\Google\\Chrome\\User Data`;
-  } else {
-    // Linux
-    return `${process.env.HOME}/.config/google-chrome`;
-  }
-}
 
 async function getStagehand() {
   if (!stagehandInstance) {
@@ -100,31 +31,7 @@ async function getStagehand() {
     //console.log(`[Stagehand] CDP Port: ${cdpPort}`);
 
     // Use a persistent directory in the current working directory for Chrome automation
-    const sourceUserDataDir = getChromeUserDataDir();
     tempUserDataDir = join(process.cwd(), '.chrome-profile');
-
-    // Only copy if the temp directory doesn't exist yet
-    if (!existsSync(tempUserDataDir)) {
-      //console.log('[Stagehand] Copying Chrome profile...');
-      //console.log(`[Stagehand] Source: ${sourceUserDataDir}`);
-      //console.log(`[Stagehand] Destination: ${tempUserDataDir}`);
-
-      mkdirSync(tempUserDataDir, { recursive: true });
-
-      // Copy the Default profile directory (contains cookies, local storage, etc.)
-      const sourceDefaultProfile = join(sourceUserDataDir!, 'Default');
-      const destDefaultProfile = join(tempUserDataDir, 'Default');
-
-      if (existsSync(sourceDefaultProfile)) {
-        //console.log('[Stagehand] Copying Default profile...');
-        cpSync(sourceDefaultProfile, destDefaultProfile, { recursive: true });
-        //console.log('[Stagehand] Profile copied successfully');
-      } else {
-        //console.log('[Stagehand] No existing profile found, using fresh profile');
-      }
-    } else {
-      //console.log('[Stagehand] Reusing existing automation profile');
-    }
 
     // Launch Chrome with remote debugging enabled
     //console.log('[Stagehand] Launching Chrome with remote debugging...');

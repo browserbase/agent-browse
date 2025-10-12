@@ -3,6 +3,7 @@ import type { HookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
 import * as path from "path";
 import * as readline from "readline";
 import stagehandServer from './stagehand-tools.js';
+import { prepareChromeProfile } from './browser-utils.js';
 
 // ANSI color codes for prettier output
 const colors = {
@@ -18,6 +19,9 @@ const colors = {
 };
 
 async function main() {
+  // Prepare Chrome profile before starting the agent (first run only)
+  prepareChromeProfile();
+
   // Get initial prompt from command line arguments
   const args = process.argv.slice(2);
   const hasInitialPrompt = args.length > 0;
