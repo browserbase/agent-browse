@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",
+    "@browserbasehq/orca": "^3.0.0-preview.1",
     "@browserbasehq/stagehand": "^2.5.2",
     "sharp": "^0.34.4",
     "zod": "^3.25.0"
