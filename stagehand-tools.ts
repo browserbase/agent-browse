@@ -100,10 +100,11 @@ async function getStagehand() {
       localBrowserLaunchOptions: {
         cdpUrl: `http://localhost:${cdpPort}`,
       },
+      experimental: true,
     });
     await stagehandInstance.init();
     //console.log('[Stagehand] Connected successfully');
-    currentPage = stagehandInstance.page;
+    currentPage = stagehandInstance.context.pages()[0];
 
     // Wait for browser context to be fully ready by checking if we can access the page
     let retries = 0;
@@ -131,7 +132,7 @@ async function getStagehand() {
       mkdirSync(downloadsPath, { recursive: true });
     }
 
-    const context = currentPage.context();
+    const context = stagehandInstance.context;
     const client = await context.newCDPSession(currentPage);
     await client.send("Browser.setDownloadBehavior", {
       behavior: "allow",
