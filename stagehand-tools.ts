@@ -217,6 +217,20 @@ async function getStagehand() {
     if (retries >= maxRetries) {
       throw new Error("Browser failed to become ready within timeout");
     }
+
+    // Configure download behavior via CDP
+    const downloadsPath = join(process.cwd(), 'agent', 'downloads');
+    if (!existsSync(downloadsPath)) {
+      mkdirSync(downloadsPath, { recursive: true });
+    }
+
+    const context = currentPage.context();
+    const client = await context.newCDPSession(currentPage);
+    await client.send("Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath: downloadsPath,
+      eventsEnabled: true,
+    });
   }
   return { stagehand: stagehandInstance, page: currentPage };
 }
@@ -397,7 +411,7 @@ const stagehandServer = createSdkMcpServer({
           const currentPath = process.cwd();
           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
           const screenshotPath = `${currentPath}/agent/browser_screenshots/screenshot-${timestamp}.png`;
-          await page.screenshot({ path: screenshotPath, fullPage: true });
+          await page.screenshot({ path: screenshotPath });
           return {
             content: [
               {

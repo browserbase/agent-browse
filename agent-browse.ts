@@ -163,7 +163,7 @@ async function main() {
       const toolUses = message.message.content.filter((c: any) => c.type === 'tool_use');
       for (const toolUse of toolUses) {
         const toolName = (toolUse as any).name.replace('mcp__stagehand__', '');
-        console.log(`\n${colors.blue}🔧 Using tool:${colors.reset} ${colors.bright}${toolName}${colors.reset}`);
+        console.log(`\n${colors.blue}🔧 Using tool:  ${colors.reset}${colors.bright}${toolName}${colors.reset}`);
         const input = JSON.stringify((toolUse as any).input, null, 2);
         const indentedInput = input.split('\n').map(line => `   ${colors.dim}${line}${colors.reset}`).join('\n');
         console.log(indentedInput);
@@ -190,11 +190,11 @@ async function main() {
           if (result.content) {
             // Content can be a string or an array
             if (typeof result.content === 'string') {
-              console.log(`\n${colors.green}✓ Tool result:${colors.reset} ${colors.dim}${result.content}${colors.reset}`);
+              console.log(`\n${colors.green}✓ Tool result: ${colors.reset}${colors.dim}${result.content}${colors.reset}`);
             } else if (Array.isArray(result.content)) {
               const textResult = result.content.find((c: any) => c.type === 'text');
               if (textResult) {
-                console.log(`\n${colors.green}✓ Tool result:${colors.reset} ${colors.dim}${textResult.text}${colors.reset}`);
+                console.log(`\n${colors.green}✓ Tool result: ${colors.reset}${colors.dim}${textResult.text}${colors.reset}`);
               }
             }
           }
