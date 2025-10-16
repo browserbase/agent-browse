@@ -5,6 +5,8 @@ import { existsSync, mkdirSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { findLocalChrome } from './browser-utils.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Lazy loading of Stagehand instance
 let stagehandInstance: Stagehand | null = null;
@@ -97,6 +99,7 @@ async function getStagehand() {
       env: "LOCAL",
       verbose: 0,
       enableCaching: true,
+      modelName: "anthropic/claude-sonnet-4-5-20250929",
       localBrowserLaunchOptions: {
         cdpUrl: `http://localhost:${cdpPort}`,
       },
