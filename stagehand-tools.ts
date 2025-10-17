@@ -99,7 +99,7 @@ async function getStagehand() {
       env: "LOCAL",
       verbose: 0,
       enableCaching: true,
-      modelName: "anthropic/claude-sonnet-4-5-20250929",
+      modelName: "anthropic/claude-haiku-4-5-20251001",
       localBrowserLaunchOptions: {
         cdpUrl: `http://localhost:${cdpPort}`,
       },
