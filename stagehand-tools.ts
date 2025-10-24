@@ -4,7 +4,7 @@ import { Stagehand } from '@browserbasehq/stagehand';
 import { existsSync, mkdirSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
-import { findLocalChrome } from './browser-utils.js';
+import { findLocalChrome, takeScreenshot } from './browser-utils.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -166,7 +166,7 @@ const stagehandServer = createSdkMcpServer({
   tools: [
     tool(
       "navigate",
-      "Navigate to a URL in the browser",
+      "Navigate to a URL in the browser. Will save a screenshot of the page after the navigation is completed.",
       {
         url: z.string().describe("The URL to navigate to"),
       },
@@ -174,11 +174,12 @@ const stagehandServer = createSdkMcpServer({
         try {
           const { page } = await getStagehand();
           await page.goto(args.url);
+          const screenshotPath = await takeScreenshot(page);
           return {
             content: [
               {
                 type: "text",
-                text: `Successfully navigated to ${args.url}`,
+                text: `Successfully navigated to ${args.url}\nScreenshot saved to ${screenshotPath}`,
               },
             ],
           };
@@ -197,7 +198,7 @@ const stagehandServer = createSdkMcpServer({
 
     tool(
       "act",
-      "Perform an action on the page using natural language (e.g., 'click the login button', 'fill in the email field with test@example.com')",
+      "Perform an action on the page using natural language (e.g., 'click the login button', 'fill in the email field with test@example.com'). Will save a screenshot of the page after the action is performed.",
       {
         action: z.string().describe("Natural language description of the action to perform"),
       },
@@ -205,11 +206,12 @@ const stagehandServer = createSdkMcpServer({
         try {
           const { page } = await getStagehand();
           await page.act(args.action);
+          const screenshotPath = await takeScreenshot(page);
           return {
             content: [
               {
                 type: "text",
-                text: `Successfully performed action: ${args.action}`,
+                text: `Successfully performed action: ${args.action}\nScreenshot saved to ${screenshotPath}`,
               },
             ],
           };
@@ -318,44 +320,7 @@ const stagehandServer = createSdkMcpServer({
       async (args) => {
         try {
           const { page } = await getStagehand();
-          const currentPath = process.cwd();
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const screenshotPath = `${currentPath}/agent/browser_screenshots/screenshot-${timestamp}.png`;
-
-          // Use CDP to take screenshot directly
-          const context = page.context();
-          const client = await context.newCDPSession(page);
-          const screenshotResult = await client.send('Page.captureScreenshot', {
-            format: 'png',
-            quality: 100,
-            fromSurface: false
-          });
-
-          // Save the base64 screenshot data to file with resizing if needed
-          const fs = await import('fs');
-          const sharp = (await import('sharp')).default;
-          const buffer = Buffer.from(screenshotResult.data, 'base64');
-
-          // Check image dimensions
-          const image = sharp(buffer);
-          const metadata = await image.metadata();
-          const { width, height } = metadata;
-
-          let finalBuffer: Buffer = buffer;
-
-          // Only resize if image exceeds 2000x2000
-          if (width && height && (width > 2000 || height > 2000)) {
-            finalBuffer = await sharp(buffer)
-              .resize(2000, 2000, {
-                fit: 'inside',
-                withoutEnlargement: true
-              })
-              .png()
-              .toBuffer();
-          }
-
-          fs.writeFileSync(screenshotPath, finalBuffer);
-
+          const screenshotPath = await takeScreenshot(page);
           return {
             content: [
               {
