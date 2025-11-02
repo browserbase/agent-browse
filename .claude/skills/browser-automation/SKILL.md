@@ -36,6 +36,8 @@ Use `mcp__stagehand__act` for natural language actions on page elements.
 - "Select 'United States' from the country dropdown"
 - "Type 'laptop' in the search box and press enter"
 
+When filling fields you don't need to combine 'click and type', stagehand will perform a fill similar to playwright's fill function, so you can just say fill the x field with y value
+
 **IMPORTANT**
 BE AS SPECIFIC AS POSSIBLE, DETAILS MAKE A WORLD OF DIFFERENCE
 
