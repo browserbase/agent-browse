@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Stagehand } from '@browserbasehq/stagehand';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { findLocalChrome, prepareChromeProfile, takeScreenshot } from './browser-utils.js';
@@ -50,6 +50,15 @@ async function initBrowser() {
       stdio: 'ignore', // Ignore stdio to prevent pipe buffer blocking
       detached: false,
     });
+
+    // Store PID for safe cleanup later
+    if (chromeProcess.pid) {
+      const pidFilePath = join(process.cwd(), '.chrome-pid');
+      writeFileSync(pidFilePath, JSON.stringify({
+        pid: chromeProcess.pid,
+        startTime: Date.now()
+      }));
+    }
 
     // Wait for Chrome to be ready
     for (let i = 0; i < 50; i++) {
@@ -114,25 +123,122 @@ async function initBrowser() {
 }
 
 async function closeBrowser() {
+  const cdpPort = 9222;
+  const pidFilePath = join(process.cwd(), '.chrome-pid');
+
+  // First, try to close via Stagehand if we have an instance in this process
   if (stagehandInstance) {
     try {
       await stagehandInstance.close();
     } catch (error) {
-      // Ignore errors during close (browser may already be closed)
+      console.error('Error closing Stagehand:', error instanceof Error ? error.message : String(error));
     }
     stagehandInstance = null;
     currentPage = null;
   }
 
-  // Only kill Chrome if we started it (don't kill user's existing Chrome)
+  // If we started Chrome in this process, kill it
   if (chromeProcess && weStartedChrome) {
     try {
-      chromeProcess.kill();
+      chromeProcess.kill('SIGTERM');
+      // Wait briefly for graceful shutdown
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (chromeProcess.exitCode === null) {
+        chromeProcess.kill('SIGKILL');
+      }
     } catch (error) {
-      // Ignore errors if process already killed
+      console.error('Error killing Chrome process:', error instanceof Error ? error.message : String(error));
     }
     chromeProcess = null;
     weStartedChrome = false;
+  }
+
+  // For separate CLI invocations, use graceful CDP shutdown + PID file verification
+  try {
+    // Step 1: Try graceful shutdown via CDP
+    const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`, {
+      signal: AbortSignal.timeout(2000)
+    });
+
+    if (response.ok) {
+      // Connect and close gracefully via Stagehand
+      const tempStagehand = new Stagehand({
+        env: "LOCAL",
+        verbose: 0,
+        enableCaching: true,
+        modelName: "anthropic/claude-haiku-4-5-20251001",
+        localBrowserLaunchOptions: {
+          cdpUrl: `http://localhost:${cdpPort}`,
+        },
+      });
+      await tempStagehand.init();
+      await tempStagehand.close();
+
+      // Wait briefly for Chrome to close
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Step 2: Check if Chrome is still running
+      try {
+        const checkResponse = await fetch(`http://127.0.0.1:${cdpPort}/json/version`, {
+          signal: AbortSignal.timeout(1000)
+        });
+
+        // Chrome is still running, need to force close
+        if (checkResponse.ok) {
+          // Step 3: Use PID file if available for safe termination
+          if (existsSync(pidFilePath)) {
+            const pidData = JSON.parse(readFileSync(pidFilePath, 'utf8'));
+            const { pid } = pidData;
+
+            // Verify the process is actually Chrome before killing
+            const isChrome = await verifyIsChromeProcess(pid);
+            if (isChrome) {
+              if (process.platform === 'win32') {
+                const { exec } = await import('child_process');
+                const { promisify } = await import('util');
+                const execAsync = promisify(exec);
+                await execAsync(`taskkill /PID ${pid} /F`);
+              } else {
+                process.kill(pid, 'SIGKILL');
+              }
+            }
+          }
+        }
+      } catch {
+        // Chrome successfully closed
+      }
+    }
+  } catch (error) {
+    // Chrome not running or already closed
+  } finally {
+    // Clean up PID file
+    if (existsSync(pidFilePath)) {
+      try {
+        unlinkSync(pidFilePath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }
+}
+
+async function verifyIsChromeProcess(pid: number): Promise<boolean> {
+  try {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      const { stdout } = await execAsync(`ps -p ${pid} -o comm=`);
+      const processName = stdout.trim().toLowerCase();
+      return processName.includes('chrome') || processName.includes('chromium');
+    } else if (process.platform === 'win32') {
+      const { stdout } = await execAsync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`);
+      return stdout.toLowerCase().includes('chrome');
+    }
+    return false;
+  } catch {
+    return false;
   }
 }
 
