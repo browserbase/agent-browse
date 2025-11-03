@@ -1,14 +1,14 @@
-# Browser Automation API Reference
+# Browser Automation CLI Reference
 
-This document provides detailed technical reference for the Stagehand browser automation tools.
+This document provides detailed technical reference for the CLI browser automation tool.
 
 ## Architecture Overview
 
 The browser automation system consists of:
 
-- **Stagehand**: TypeScript library wrapping Playwright for AI-driven browser control. Uses another model to choose to find and interact with the right elements, so be specific
+- **Stagehand**: TypeScript library wrapping Playwright for AI-driven browser control. Uses AI model to find and interact with the right elements, so be specific
 - **Chrome CDP**: Chrome DevTools Protocol connection on port 9222
-- **MCP Server**: Model Context Protocol server exposing tools to Claude
+- **CLI Tool**: Command-line interface in `src/cli.ts` for browser automation
 - **Local Chrome**: Chrome browser launched with remote debugging enabled
 
 ### File Locations
@@ -17,65 +17,89 @@ The browser automation system consists of:
 - **Screenshots**: `./agent/browser_screenshots/` - Screenshot output directory
 - **Downloads**: `./agent/downloads/` - File download directory
 
-## Tool Reference
+## CLI Command Reference
 
-### mcp__stagehand__navigate
+### navigate
 
 Navigate to a URL in the browser.
+
+**Usage**:
+```bash
+tsx src/cli.ts navigate <url>
+```
 
 **Parameters**:
 - `url` (string, required): The URL to navigate to. Must include protocol (http:// or https://)
 
 **Returns**:
-- Success message with the navigated URL
-- Error message if navigation fails
+JSON output:
+```json
+{
+  "success": true,
+  "message": "Successfully navigated to <url>",
+  "screenshot": "/path/to/screenshot.png"
+}
+```
 
 **Implementation Details**:
 - Uses Playwright's `page.goto()` under the hood
 - Waits for network idle and DOM content loaded
+- Automatically takes a screenshot after navigation
 - Supports HTTPS upgrade for HTTP URLs
 
 **Example**:
-```javascript
-{
-  "url": "https://example.com"
-}
+```bash
+tsx src/cli.ts navigate https://example.com
 ```
 
 **Error Handling**:
-- Invalid URLs return error message
+- Invalid URLs return error with `success: false`
 - Network timeouts return timeout error
 - SSL certificate errors may fail navigation
 
 ---
 
-### mcp__stagehand__act
+### act
 
 Perform an action on the page using natural language.
+
+**Usage**:
+```bash
+tsx src/cli.ts act "<action>"
+```
 
 **Parameters**:
 - `action` (string, required): Natural language description of the action to perform
 
 **Returns**:
-- Success message confirming action performed, but without specificity it might be succeeding on the wrong element!
-- Error message if action fails (locator doesn't resolve. )
+JSON output:
+```json
+{
+  "success": true,
+  "message": "Successfully performed action: <action>",
+  "screenshot": "/path/to/screenshot.png"
+}
+```
+
+Note: Without specificity it might succeed on the wrong element!
 
 **Implementation Details**:
-- Uses Stagehand's `page.act()` which leverages Claude Sonnet 4.5
+- Uses Stagehand's `page.act()` which leverages Claude Haiku 4.5
 - AI model interprets natural language and executes corresponding browser actions
 - Supports: clicking, typing, selecting, scrolling, waiting, hovering, and more
 - Automatically handles element location and interaction
+- Automatically takes a screenshot after the action
 
 **Natural Language Examples**:
-```
-"Click the login button"
-"Fill in email field with test@example.com"
-"Scroll to the bottom of the page"
-"Select 'California' from the state dropdown"
-"Hover over the menu icon"
-"Wait for 3 seconds"
-"Press the Enter key"
-"Double-click the file icon"
+```bash
+tsx src/cli.ts act "Click the login button"
+tsx src/cli.ts act "Fill in email field with test@example.com"
+tsx src/cli.ts act "Scroll to the bottom of the page"
+tsx src/cli.ts act "Select 'California' from the state dropdown"
+tsx src/cli.ts act "Hover over the menu icon"
+tsx src/cli.ts act "Wait for 3 seconds"
+tsx src/cli.ts act "Press the Enter key"
+tsx src/cli.ts act "Double-click the file icon"
 ```
 
 **Best Practices**:
@@ -88,16 +112,22 @@ Perform an action on the page using natural language.
 - Element not found errors indicate selector couldn't be resolved
 - Timeout errors occur when action takes too long
 - Action not possible errors indicate element state prevents action
+- All errors return JSON with `success: false`
 
 ---
 
-### mcp__stagehand__extract
+### extract
 
 Extract structured data from the current page using a schema.
 
+**Usage**:
+```bash
+tsx src/cli.ts extract "<instruction>" '{"field": "type"}'
+```
+
 **Parameters**:
 - `instruction` (string, required): Natural language description of what to extract
-- `schema` (object, required): Schema definition mapping field names to types
+- `schema` (JSON string, required): Schema definition mapping field names to types
 
 **Schema Types**:
 - `"string"`: Text content
@@ -105,41 +135,31 @@ Extract structured data from the current page using a schema.
 - `"boolean"`: True/false values
 
 **Returns**:
-- JSON object matching the provided schema
-- Error message if extraction fails
-
-**Implementation Details**:
-- Uses Stagehand's `page.extract()` with Zod schema validation
-- AI model (Claude Sonnet 4.5) identifies relevant page elements
-- Automatically handles pagination and dynamic content
-- Validates extracted data against schema
-
-**Schema Example**:
-```javascript
+JSON output:
+```json
 {
-  "instruction": "Extract the product information",
-  "schema": {
-    "productName": "string",
-    "price": "number",
-    "inStock": "boolean",
-    "description": "string",
-    "rating": "number"
+  "success": true,
+  "data": {
+    "field1": "value",
+    "field2": 123
   }
 }
 ```
 
+**Implementation Details**:
+- Uses Stagehand's `page.extract()` with Zod schema validation
+- AI model (Claude Haiku 4.5) identifies relevant page elements
+- Automatically handles pagination and dynamic content
+- Validates extracted data against schema
+
+**Schema Example**:
+```bash
+tsx src/cli.ts extract "Extract the product information" '{"productName": "string", "price": "number", "inStock": "boolean", "description": "string", "rating": "number"}'
+```
+
 **Complex Extraction Example**:
-```javascript
-{
-  "instruction": "Extract all items from the shopping cart",
-  "schema": {
-    "itemName": "string",
-    "quantity": "number",
-    "unitPrice": "number",
-    "totalPrice": "number",
-    "imageUrl": "string"
-  }
-}
+```bash
+tsx src/cli.ts extract "Extract all items from the shopping cart" '{"itemName": "string", "quantity": "number", "unitPrice": "number", "totalPrice": "number", "imageUrl": "string"}'
 ```
 
 **Best Practices**:
@@ -152,19 +172,38 @@ Extract structured data from the current page using a schema.
 - Schema validation errors indicate type mismatch
 - Extraction failures occur when data not found on page
 - Timeout errors for pages that take too long to analyze
+- All errors return JSON with `success: false`
 
 ---
 
-### mcp__stagehand__observe
+### observe
 
 Discover available actions on the page.
+
+**Usage**:
+```bash
+tsx src/cli.ts observe "<query>"
+```
 
 **Parameters**:
 - `query` (string, required): Natural language query to discover elements
 
 **Returns**:
-- JSON array of discovered elements with metadata
-- Error message if observation fails
+JSON output:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "selector": "button.submit-btn",
+      "text": "Submit Form",
+      "type": "button",
+      "visible": true,
+      "enabled": true
+    }
+  ]
+}
+```
 
 **Implementation Details**:
 - Uses Stagehand's `page.observe()` to scan page elements
@@ -172,27 +211,13 @@ Discover available actions on the page.
 - Provides element properties, states, and available actions
 
 **Query Examples**:
-```
-"Find all buttons"
-"Find clickable links in the navigation"
-"Find form input fields"
-"Find all submit buttons"
-"Find elements with text 'Login'"
-"Find all images"
-```
-
-**Response Format**:
-```javascript
-[
-  {
-    "selector": "button.submit-btn",
-    "text": "Submit Form",
-    "type": "button",
-    "visible": true,
-    "enabled": true
-  },
-  // ... more elements
-]
+```bash
+tsx src/cli.ts observe "Find all buttons"
+tsx src/cli.ts observe "Find clickable links in the navigation"
+tsx src/cli.ts observe "Find form input fields"
+tsx src/cli.ts observe "Find all submit buttons"
+tsx src/cli.ts observe "Find elements with text 'Login'"
+tsx src/cli.ts observe "Find all images"
 ```
 
 **Use Cases**:
@@ -204,18 +229,29 @@ Discover available actions on the page.
 **Error Handling**:
 - Empty array returned when no elements match
 - Timeout for pages that take too long to scan
+- All errors return JSON with `success: false`
 
 ---
 
-### mcp__stagehand__screenshot
+### screenshot
 
 Take a screenshot of the current page.
+
+**Usage**:
+```bash
+tsx src/cli.ts screenshot
+```
 
 **Parameters**: None
 
 **Returns**:
-- Success message with screenshot file path
-- Error message if screenshot fails
+JSON output:
+```json
+{
+  "success": true,
+  "screenshot": "/path/to/screenshot.png"
+}
+```
 
 **Implementation Details**:
 - Uses Chrome DevTools Protocol `Page.captureScreenshot`
@@ -229,9 +265,9 @@ Take a screenshot of the current page.
 ./agent/browser_screenshots/screenshot-YYYY-MM-DDTHH-MM-SS-mmmZ.png
 ```
 
-**Example Output**:
-```
-Screenshot saved to /Users/.../agent-browse/agent/browser_screenshots/screenshot-2025-10-17T14-30-45-123Z.png
+**Example**:
+```bash
+tsx src/cli.ts screenshot
 ```
 
 **Image Processing**:
@@ -249,28 +285,39 @@ Screenshot saved to /Users/.../agent-browse/agent/browser_screenshots/screenshot
 - Directory creation errors if screenshots folder can't be created
 - CDP errors if Chrome DevTools Protocol connection fails
 - File write errors if disk space insufficient
+- All errors return JSON with `success: false`
 
 ---
 
-### mcp__stagehand__close_browser
+### close
 
 Close the browser and cleanup resources.
+
+**Usage**:
+```bash
+tsx src/cli.ts close
+```
 
 **Parameters**: None
 
 **Returns**:
-- Success message confirming browser closed
-- Error message if cleanup fails
+JSON output:
+```json
+{
+  "success": true,
+  "message": "Browser closed"
+}
+```
 
 **Implementation Details**:
 - Calls `stagehand.close()` to clean up Playwright resources
-- Kills Chrome process with `chromeProcess.kill()`
+- Kills Chrome process if it was started by the CLI tool
 - Clears internal state variables
 - Does NOT delete `.chrome-profile/` directory (preserved for reuse)
 
 **Resource Cleanup**:
 - Closes all browser tabs and windows
-- Terminates Chrome process
+- Terminates Chrome process (only if started by this tool)
 - Releases CDP connection
 - Clears Stagehand instance
 
@@ -283,6 +330,7 @@ Close the browser and cleanup resources.
 - Continues cleanup even if some steps fail
 - Safe to call multiple times
 - Gracefully handles already-closed browser
+- All errors return JSON with `success: false`
 
 ---
 
@@ -290,14 +338,14 @@ Close the browser and cleanup resources.
 
 ### Stagehand Initialization
 
-The Stagehand instance is configured with:
+The Stagehand instance is configured in `src/cli.ts` with:
 
 ```typescript
 new Stagehand({
   env: "LOCAL",
   verbose: 0,
   enableCaching: true,
-  modelName: "anthropic/claude-sonnet-4-5-20250929",
+  modelName: "anthropic/claude-haiku-4-5-20251001",
   localBrowserLaunchOptions: {
     cdpUrl: `http://localhost:9222`,
   },
@@ -308,21 +356,25 @@ new Stagehand({
 - `env: "LOCAL"`: Uses local Chrome instead of remote browser
 - `verbose: 0`: Minimal logging output
 - `enableCaching: true`: Caches page analysis for better performance
-- `modelName`: Claude Sonnet 4.5 for AI-driven actions and extraction
+- `modelName`: Claude Haiku 4.5 for AI-driven actions and extraction
 - `cdpUrl`: Chrome DevTools Protocol endpoint
 
 ### Chrome Launch Arguments
 
-Chrome is launched with:
+Chrome is launched by `src/cli.ts` with:
 
 ```bash
 --remote-debugging-port=9222
 --user-data-dir=.chrome-profile
+--window-position=-9999,-9999
+--window-size=1280,720
 ```
 
 **Arguments**:
 - `--remote-debugging-port`: Enables CDP on port 9222
 - `--user-data-dir`: Persistent profile directory for session/cookie persistence
+- `--window-position`: Launches minimized off-screen
+- `--window-size`: Default window size
 
 ### Download Configuration
 
@@ -426,7 +478,7 @@ Browser automation consumes:
 
 ### Enable Verbose Logging
 
-Uncomment debug logs in `stagehand-tools.ts`:
+Edit `src/cli.ts` and change verbose level in Stagehand configuration:
 
 ```typescript
 // Change verbose: 0 to verbose: 1 or 2
@@ -462,13 +514,23 @@ ls -lh ./agent/browser_screenshots/
 open ./agent/browser_screenshots/screenshot-*.png
 ```
 
+### Test CLI Commands
+
+Test individual commands:
+```bash
+tsx src/cli.ts navigate https://example.com
+tsx src/cli.ts screenshot
+tsx src/cli.ts close
+```
+
 ---
 
 ## Version Information
 
-- **Stagehand**: Uses `@browserbasehq/stagehand` package
-- **Model**: Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
-- **MCP SDK**: `@anthropic-ai/claude-agent-sdk`
+- **Stagehand**: Uses `@browserbasehq/stagehand` package v2.5.2+
+- **Model**: Claude Haiku 4.5 (claude-haiku-4-5-20251001) for browser actions
+- **CLI Tool**: TypeScript CLI in `src/cli.ts`
+- **Agent SDK**: `@anthropic-ai/claude-agent-sdk` for conversation framework
 - **Browser**: Local Chrome/Chromium installation
 
 For updates and changelog, see the main project repository.

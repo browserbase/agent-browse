@@ -1,9 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import type { HookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
-import * as path from "path";
 import * as readline from "readline";
-import stagehandServer from './stagehand-tools.js';
-import { prepareChromeProfile } from './browser-utils.js';
+import { prepareChromeProfile } from './src/browser-utils.js';
 
 // ANSI color codes for prettier output
 const colors = {
@@ -98,60 +95,35 @@ async function main() {
   const q = query({
     prompt: generateMessages(),
     options: {
-      systemPrompt: { type: 'preset', preset: 'claude_code', append: "\n\nWhen using the Stagehand tools, take a screenshot after each tool call and view the screenshot to ensure the tool was completed correctly. Use the todo tools to keep track of your steps." },
+      systemPrompt: {
+        type: 'preset',
+        preset: 'claude_code',
+        append: `\n\n# Browser Automation via CLI
+
+For browser automation tasks, use bash commands to call the CLI tool:
+
+**Available commands:**
+- \`tsx src/cli.ts navigate <url>\` - Navigate to a URL and take screenshot
+- \`tsx src/cli.ts act "<action>"\` - Perform natural language action and take screenshot
+- \`tsx src/cli.ts extract "<instruction>" '{"field": "type"}'\` - Extract structured data
+- \`tsx src/cli.ts observe "<query>"\` - Discover elements on page
+- \`tsx src/cli.ts screenshot\` - Take a screenshot
+- \`tsx src/cli.ts close\` - Close the browser
+
+**Important:**
+- Always navigate first before performing actions
+- Be as specific as possible in your action descriptions
+- Check the success field in JSON output
+- The browser stays open between commands for faster operations
+- Always close the browser when done with tasks
+- Use the TodoWrite tool to track your browser automation steps
+
+All commands output JSON with success status and relevant data.`
+      },
       maxTurns: 100,
-      cwd: path.join(process.cwd(), 'agent'),
+      cwd: process.cwd(),
       model: "sonnet",
-      executable: "node", // Use the current node binary path
-      mcpServers: {
-        "stagehand": stagehandServer
-      },
-      allowedTools: [
-        "Task", "Bash", "Glob", "Grep", "LS", "ExitPlanMode", "Read", "Edit", "MultiEdit", "Write", "NotebookEdit",
-        "WebFetch", "TodoWrite", "WebSearch", "BashOutput", "KillBash",
-        "mcp__stagehand__navigate", "mcp__stagehand__act", "mcp__stagehand__extract",
-        "mcp__stagehand__observe", "mcp__stagehand__screenshot",
-        "mcp__stagehand__close_browser"
-      ],
-      hooks: {
-        PreToolUse: [
-          {
-            matcher: "Write|Edit|MultiEdit",
-            hooks: [
-              async (input: any): Promise<HookJSONOutput> => {
-                const toolName = input.tool_name;
-                const toolInput = input.tool_input;
-
-                if (!['Write', 'Edit', 'MultiEdit'].includes(toolName)) {
-                  return { continue: true };
-                }
-
-                let filePath = '';
-                if (toolName === 'Write' || toolName === 'Edit') {
-                  filePath = toolInput.file_path || '';
-                } else if (toolName === 'MultiEdit') {
-                  filePath = toolInput.file_path || '';
-                }
-
-                const ext = path.extname(filePath).toLowerCase();
-                if (ext === '.js' || ext === '.ts') {
-                  const customScriptsPath = path.join(process.cwd(), 'agent', 'custom_scripts');
-
-                  if (!filePath.startsWith(customScriptsPath)) {
-                    return {
-                      decision: 'block',
-                      stopReason: `Script files (.js and .ts) must be written to the custom_scripts directory. Please use the path: ${customScriptsPath}/${path.basename(filePath)}`,
-                      continue: false
-                    };
-                  }
-                }
-
-                return { continue: true };
-              }
-            ]
-          }
-        ]
-      },
+      executable: "node",
     },
   });
 
@@ -166,7 +138,7 @@ async function main() {
       // Show tool uses (but not tool results - those come in 'user' type messages)
       const toolUses = message.message.content.filter((c: any) => c.type === 'tool_use');
       for (const toolUse of toolUses) {
-        const toolName = (toolUse as any).name.replace('mcp__stagehand__', '');
+        const toolName = (toolUse as any).name;
         console.log(`\n${colors.blue}🔧 Using tool:  ${colors.reset}${colors.bright}${toolName}${colors.reset}`);
         const input = JSON.stringify((toolUse as any).input, null, 2);
         const indentedInput = input.split('\n').map(line => `   ${colors.dim}${line}${colors.reset}`).join('\n');

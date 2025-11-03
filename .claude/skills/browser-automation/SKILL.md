@@ -1,73 +1,91 @@
 ---
 name: Browser Automation
-description: Automate web browser interactions using natural language. Use when the user asks to browse websites, navigate web pages, extract data from websites, take screenshots, fill forms, click buttons, or interact with web applications. Triggers include "browse", "navigate to", "go to website", "extract data from webpage", "screenshot", "web scraping", "fill out form", "click on", "search for on the web". When taking actions be as specific as possible. 
-allowed-tools: mcp__stagehand__navigate, mcp__stagehand__act, mcp__stagehand__extract, mcp__stagehand__observe, mcp__stagehand__screenshot, mcp__stagehand__close_browser
+description: Automate web browser interactions using natural language via CLI commands. Use when the user asks to browse websites, navigate web pages, extract data from websites, take screenshots, fill forms, click buttons, or interact with web applications. Triggers include "browse", "navigate to", "go to website", "extract data from webpage", "screenshot", "web scraping", "fill out form", "click on", "search for on the web". When taking actions be as specific as possible.
+allowed-tools: Bash
 ---
 
 # Browser Automation
 
-Automate browser interactions using Stagehand with Claude. This skill provides natural language control over a Chrome browser for navigation, interaction, data extraction, and screenshots.
+Automate browser interactions using Stagehand CLI with Claude. This skill provides natural language control over a Chrome browser through command-line tools for navigation, interaction, data extraction, and screenshots.
+
+## Overview
+
+This skill uses a CLI-based approach where Claude Code calls browser automation commands via bash. The browser stays open between commands for faster sequential operations and preserves browser state (cookies, sessions, etc.).
 
 ## Prerequisites
 
-The browser automation MCP server must be running. It uses a local Chrome installation and connects via Chrome DevTools Protocol (CDP) on port 9222.
+- Google Chrome installed on your system
+- Node.js and dependencies installed (`pnpm install`)
+- Project built (`pnpm build` or `tsx` for running TypeScript directly)
 
-## Available Operations
+## Available Commands
 
 ### Navigate to URLs
-Use `mcp__stagehand__navigate` to load web pages.
+```bash
+tsx src/cli.ts navigate <url>
+```
 
 **When to use**: Opening any website, loading a specific URL, going to a web page.
 
-**Example requests**:
-- "Navigate to https://example.com"
-- "Go to google.com"
-- "Open the GitHub homepage"
+**Example usage**:
+- `tsx src/cli.ts navigate https://example.com`
+- `tsx src/cli.ts navigate https://news.ycombinator.com`
+
+**Output**: JSON with success status, message, and screenshot path
 
 ### Interact with Pages
-Use `mcp__stagehand__act` for natural language actions on page elements.
+```bash
+tsx src/cli.ts act "<action>"
+```
 
 **When to use**: Clicking buttons, filling forms, scrolling, selecting options, typing text.
 
-**Example requests**:
-- "Click the 'Sign In' button"
-- "Fill in the email field with test@example.com"
-- "Scroll down to the footer"
-- "Select 'United States' from the country dropdown"
-- "Type 'laptop' in the search box and press enter"
+**Example usage**:
+- `tsx src/cli.ts act "click the Sign In button"`
+- `tsx src/cli.ts act "fill in the email field with test@example.com"`
+- `tsx src/cli.ts act "scroll down to the footer"`
+- `tsx src/cli.ts act "type 'laptop' in the search box and press enter"`
 
-When filling fields you don't need to combine 'click and type', stagehand will perform a fill similar to playwright's fill function, so you can just say fill the x field with y value
+**Important**: Be as specific as possible - details make a world of difference. When filling fields, you don't need to combine 'click and type'; the tool will perform a fill similar to Playwright's fill function.
 
-**IMPORTANT**
-BE AS SPECIFIC AS POSSIBLE, DETAILS MAKE A WORLD OF DIFFERENCE
+**Output**: JSON with success status, message, and screenshot path
 
 ### Extract Data
-Use `mcp__stagehand__extract` to get structured data from the page.
+```bash
+tsx src/cli.ts extract "<instruction>" '{"field": "type"}'
+```
 
 **When to use**: Scraping data, getting specific information, collecting structured content.
 
-**Schema format**: Define fields as objects with field names as keys and types as values:
+**Schema format**: JSON object where keys are field names and values are types:
 - `"string"` for text
 - `"number"` for numeric values
 - `"boolean"` for true/false values
 
-**Example requests**:
-- "Extract the product title, price, and availability"
-- "Get all the article headlines and authors"
-- "Scrape the table data from this page"
+**Example usage**:
+- `tsx src/cli.ts extract "get the product title and price" '{"title": "string", "price": "number"}'`
+- `tsx src/cli.ts extract "get all article headlines" '{"headlines": "string"}'`
+
+**Output**: JSON with success status and extracted data
 
 ### Discover Elements
-Use `mcp__stagehand__observe` to find available actions and elements on the page.
+```bash
+tsx src/cli.ts observe "<query>"
+```
 
 **When to use**: Understanding page structure, finding what's clickable, discovering form fields.
 
-**Example requests**:
-- "Find all clickable buttons on the page"
-- "What form fields are available?"
-- "Show me all the links in the navigation menu"
+**Example usage**:
+- `tsx src/cli.ts observe "find all clickable buttons"`
+- `tsx src/cli.ts observe "find all form fields"`
+- `tsx src/cli.ts observe "find all navigation links"`
+
+**Output**: JSON with success status and discovered elements
 
 ### Take Screenshots
-Use `mcp__stagehand__screenshot` to capture the current page state.
+```bash
+tsx src/cli.ts screenshot
+```
 
 **When to use**: Visual verification, documenting page state, debugging, creating records.
 
@@ -76,70 +94,88 @@ Use `mcp__stagehand__screenshot` to capture the current page state.
 - Images larger than 2000x2000 pixels are automatically resized
 - Filename includes timestamp for uniqueness
 
-**Example requests**:
-- "Take a screenshot of the current page"
-- "Capture what's on screen"
-- "Show me what the page looks like"
+**Output**: JSON with success status and screenshot path
 
 ### Clean Up
-Use `mcp__stagehand__close_browser` when finished with browser tasks.
+```bash
+tsx src/cli.ts close
+```
 
 **When to use**: After completing all browser interactions, to free up resources.
 
-**Example requests**:
-- "Close the browser"
-- "Clean up and close Chrome"
-- "We're done with the browser"
+**Output**: JSON with success status and message
+
+## Browser Behavior
+
+**Persistent Browser**: The browser stays open between commands for faster sequential operations and to preserve browser state (cookies, sessions, etc.).
+
+**Reuse Existing**: If Chrome is already running on port 9222, it will reuse that instance.
+
+**Minimized Launch**: Chrome opens off-screen (position -9999,-9999) to avoid disrupting workflow.
+
+**Safe Cleanup**: The browser only closes when you explicitly call the `close` command.
 
 ## Best Practices
 
 1. **Always navigate first**: Before interacting with a page, navigate to the URL
 2. **Use natural language**: Describe actions as you would instruct a human
-3. **Extract with clear schemas**: Define field names and types explicitly
-4. **Handle errors gracefully**: If an action fails, try using `observe` to understand the page better
+3. **Extract with clear schemas**: Define field names and types explicitly in JSON
+4. **Handle errors gracefully**: Check the `success` field in JSON output; if an action fails, try using `observe` to understand the page better
 5. **Close when done**: Always clean up browser resources after completing tasks
 6. **Be specific**: Use precise selectors in natural language ("the blue Submit button" vs "the button")
+7. **Chain commands**: Run multiple commands sequentially without reopening the browser
 
 ## Common Patterns
 
 ### Simple browsing task
-1. Navigate to URL
-2. Perform actions (click, fill, scroll)
-3. Take screenshot or extract data
-4. Close browser
+```bash
+tsx src/cli.ts navigate https://example.com
+tsx src/cli.ts act "click the login button"
+tsx src/cli.ts screenshot
+tsx src/cli.ts close
+```
 
 ### Data extraction task
-1. Navigate to URL
-2. Wait for content to load (act: "wait for page to load")
-3. Extract structured data with schema
-4. Process the extracted JSON data
-5. Close browser
+```bash
+tsx src/cli.ts navigate https://example.com/products
+tsx src/cli.ts act "wait for page to load"
+tsx src/cli.ts extract "get all products" '{"name": "string", "price": "number"}'
+tsx src/cli.ts close
+```
 
 ### Multi-step interaction
-1. Navigate to URL
-2. Act: Fill in form fields
-3. Act: Click submit button
-4. Wait for results
-5. Extract or screenshot results
-6. Close browser
+```bash
+tsx src/cli.ts navigate https://example.com/login
+tsx src/cli.ts act "fill in email with user@example.com"
+tsx src/cli.ts act "fill in password with mypassword"
+tsx src/cli.ts act "click the submit button"
+tsx src/cli.ts screenshot
+tsx src/cli.ts close
+```
 
 ### Debugging workflow
-1. Navigate to URL
-2. Take screenshot (verify page loaded correctly)
-3. Observe (find available elements)
-4. Act on specific elements
-5. Take screenshot (verify action succeeded)
-6. Close browser
+```bash
+tsx src/cli.ts navigate https://example.com
+tsx src/cli.ts screenshot
+tsx src/cli.ts observe "find all buttons"
+tsx src/cli.ts act "click the specific button"
+tsx src/cli.ts screenshot
+tsx src/cli.ts close
+```
 
 ## Troubleshooting
 
-**Page not loading**: Wait a few seconds after navigation before acting. You can explicitly act: "wait for the page to fully load"
+**Page not loading**: Wait a few seconds after navigation before acting. You can explicitly: `tsx src/cli.ts act "wait for the page to fully load"`
 
 **Element not found**: Use `observe` to discover what elements are actually available on the page
 
 **Action fails**: Be more specific in natural language description. Instead of "click the button", try "click the blue Submit button in the form"
 
 **Screenshots missing**: Check the `./agent/browser_screenshots/` directory for saved files
+
+**Chrome not found**: Install Google Chrome or the CLI will show an error with installation instructions
+
+**Port 9222 in use**: Another Chrome debugging session is running. Close it or wait for timeout
 
 For detailed examples, see [EXAMPLES.md](EXAMPLES.md).
 For API reference and technical details, see [REFERENCE.md](REFERENCE.md).

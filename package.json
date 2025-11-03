@@ -1,6 +1,10 @@
 {
+  "bin": {
+    "browser": "./src/cli.ts"
+  },
   "scripts": {
-    "claude": "tsx agent-browse.ts"
+    "claude": "tsx agent-browse.ts",
+    "build": "tsc"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",
