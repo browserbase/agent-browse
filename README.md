@@ -1,4 +1,26 @@
+# Browser Automation Skill
+
+## Available as a Claude Code Skill
+
+This browser automation is available as a **Claude Code Skill** via the plugin marketplace. Skills are folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks. They teach Claude how to complete specific tasks in a repeatable way.
+
+**Install via Claude Code:**
+```
+/plugin marketplace add browserbase/agent-browse
+```
+
+Once installed, simply mention the skill in your conversation: "Use the browser automation skill to navigate to example.com and extract contact information."
+
+Learn more:
+- [What are skills?](https://support.claude.com/en/articles/12512176-what-are-skills)
+- [Using skills in Claude](https://support.claude.com/en/articles/12512180-using-skills-in-claude)
+- [How to create custom skills](https://support.claude.com/en/articles/12512198-creating-custom-skills)
+
+---
+
 # Claude Agent SDK + Stagehand: Agentic Browser Automation
+
+## About This Demo
 
 A demo showing how the **[Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview)** (reasoning) combines with **[Stagehand](https://github.com/browserbase/stagehand)** (AI browser automation framework) to create powerful agentic browser automation. Because Stagehand accepts natural language instructions, it's significantly more context-efficient than native Playwright.
 
