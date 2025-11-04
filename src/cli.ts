@@ -55,7 +55,7 @@ async function initBrowser() {
       `--remote-debugging-port=${cdpPort}`,
       `--user-data-dir=${tempUserDataDir}`,
       '--window-position=-9999,-9999', // Launch minimized off-screen
-      '--window-size=1280,720',
+      '--window-size=1280,900',
     ], {
       stdio: 'ignore', // Ignore stdio to prevent pipe buffer blocking
       detached: false,
@@ -175,7 +175,6 @@ async function closeBrowser() {
       const tempStagehand = new Stagehand({
         env: "LOCAL",
         verbose: 0,
-        enableCaching: true,
         modelName: "anthropic/claude-haiku-4-5-20251001",
         localBrowserLaunchOptions: {
           cdpUrl: `http://localhost:${cdpPort}`,
