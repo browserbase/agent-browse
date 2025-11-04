@@ -1,6 +1,13 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import * as readline from "readline";
 import { prepareChromeProfile } from './src/browser-utils.js';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+// Resolve plugin root directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PLUGIN_ROOT = __dirname; // agent-browse.ts is in the root
 
 // ANSI color codes for prettier output
 const colors = {
@@ -17,7 +24,7 @@ const colors = {
 
 async function main() {
   // Prepare Chrome profile before starting the agent (first run only)
-  prepareChromeProfile();
+  prepareChromeProfile(PLUGIN_ROOT);
 
   // Get initial prompt from command line arguments
   const args = process.argv.slice(2);

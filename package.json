@@ -1,10 +1,14 @@
 {
+  "name": "agent-browse",
+  "version": "0.0.1",
+  "type": "module",
   "bin": {
-    "browser": "./src/cli.ts"
+    "browser": "./dist/src/cli.js"
   },
   "scripts": {
     "claude": "tsx agent-browse.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",
