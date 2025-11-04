@@ -43,4 +43,4 @@ agent/downloads/*
 !agent/downloads/.gitkeep
 
 # Stagehand Cache
-tmp/.cache/
+tmp/.cache/.chrome-pid

@@ -107,7 +107,13 @@ export function prepareChromeProfile() {
 export async function takeScreenshot(page: Page) {
   const currentPath = process.cwd();
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const screenshotPath = `${currentPath}/agent/browser_screenshots/screenshot-${timestamp}.png`;
+  const screenshotDir = `${currentPath}/agent/browser_screenshots`;
+  const screenshotPath = `${screenshotDir}/screenshot-${timestamp}.png`;
+
+  // Create directory if it doesn't exist
+  if (!existsSync(screenshotDir)) {
+    mkdirSync(screenshotDir, { recursive: true });
+  }
 
  const context = page.context();
  const client = await context.newCDPSession(page);
