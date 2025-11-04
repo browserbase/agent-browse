@@ -29,22 +29,25 @@ Run these commands in the plugin directory:
 
 ```bash
 # 1. Install dependencies and build (REQUIRED)
-# This automatically builds TypeScript and links the 'browser' command
+# This automatically builds TypeScript
 npm install
 # or: pnpm install
 # or: bun install
 
-# 2. Configure API key (REQUIRED)
+# 2. Link the browser command globally (REQUIRED)
+npm link
+
+# 3. Configure API key (REQUIRED)
 cp .env.example .env
 # Then edit .env and add: ANTHROPIC_API_KEY="your-api-key-here"
 
-# 3. Verify Chrome is installed
+# 4. Verify Chrome is installed
 # Chrome should be at standard location for your OS
 
-# 4. Test the installation
+# 5. Test the installation
 browser navigate https://example.com
 
-# 5. If test succeeds, update setup.json
+# 6. If test succeeds, update setup.json
 # Set all "installed"/"configured" fields to true
 # Set "setupComplete" to true
 ```
@@ -52,8 +55,8 @@ browser navigate https://example.com
 ### Prerequisites Summary
 
 - ✅ Google Chrome installed on your system
-- ✅ Node.js dependencies installed and TypeScript built (`npm install` runs postinstall build automatically)
-- ✅ Browser command globally available (linked during npm install)
+- ✅ Node.js dependencies installed and TypeScript built (`npm install` runs build automatically)
+- ✅ Browser command globally available (`npm link` creates the global symlink)
 - ✅ Anthropic API key configured in `.env` file
 
 **DO NOT attempt to use browser commands if `setupComplete: false` in setup.json. Guide the user through setup first.**

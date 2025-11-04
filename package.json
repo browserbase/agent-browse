@@ -8,7 +8,7 @@
   "scripts": {
     "claude": "tsx agent-browse.ts",
     "build": "tsc",
-    "postinstall": "npm run build && npm link"
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.14",

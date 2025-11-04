@@ -23,12 +23,13 @@
     }
   },
   "setupInstructions": [
-    "1. Run: npm install (this will automatically build TypeScript and link the 'browser' command)",
-    "2. Create .env file with ANTHROPIC_API_KEY: cp .env.example .env",
-    "3. Edit .env and add your Anthropic API key",
-    "4. Ensure Google Chrome is installed on your system",
-    "5. Test installation: browser navigate https://example.com",
-    "6. Update this setup.json file: set all 'installed'/'configured' to true and 'setupComplete' to true"
+    "1. Run: npm install (this will automatically build TypeScript)",
+    "2. Run: npm link (this creates the global 'browser' command)",
+    "3. Create .env file with ANTHROPIC_API_KEY: cp .env.example .env",
+    "4. Edit .env and add your Anthropic API key",
+    "5. Ensure Google Chrome is installed on your system",
+    "6. Test installation: browser navigate https://example.com",
+    "7. Update this setup.json file: set all 'installed'/'configured' to true and 'setupComplete' to true"
   ],
   "verifySetup": "Run 'browser navigate https://example.com' from any directory to verify installation"
 }
