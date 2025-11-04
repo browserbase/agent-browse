@@ -15,8 +15,10 @@ This skill uses a CLI-based approach where Claude Code calls browser automation 
 ## Prerequisites
 
 - Google Chrome installed on your system
-- Node.js and dependencies installed (`pnpm install`)
-- Project built (`pnpm build` or `tsx` for running TypeScript directly)
+- Node.js and dependencies installed (`npm install`, `pnpm install`, or `bun install`)
+- **Anthropic API key configured** (choose one):
+  - Create a `.env` file: `cp .env.example .env` and add your key
+  - Or export in terminal: `export ANTHROPIC_API_KEY="your-api-key"`
 
 ## Available Commands
 
@@ -180,3 +182,15 @@ tsx src/cli.ts close
 
 For detailed examples, see [EXAMPLES.md](EXAMPLES.md).
 For API reference and technical details, see [REFERENCE.md](REFERENCE.md).
+
+## Dependencies
+
+To use this skill, install these dependencies only if they aren't already present:
+
+```bash
+npm install
+# or
+pnpm install
+# or
+bun install
+```
