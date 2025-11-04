@@ -71,7 +71,7 @@ async function initBrowser() {
       `--remote-debugging-port=${cdpPort}`,
       `--user-data-dir=${tempUserDataDir}`,
       '--window-position=-9999,-9999', // Launch minimized off-screen
-      '--window-size=1280,720',
+      '--window-size=1250,900',
     ], {
       stdio: 'ignore', // Ignore stdio to prevent pipe buffer blocking
       detached: false,
