@@ -66,7 +66,7 @@ tsx src/cli.ts extract "<instruction>" '{"field": "type"}'
 - `tsx src/cli.ts extract "get the product title and price" '{"title": "string", "price": "number"}'`
 - `tsx src/cli.ts extract "get all article headlines" '{"headlines": "string"}'`
 
-**Output**: JSON with success status and extracted data
+**Output**: JSON with success status, extracted data, and screenshot path
 
 ### Discover Elements
 ```bash
@@ -80,7 +80,7 @@ tsx src/cli.ts observe "<query>"
 - `tsx src/cli.ts observe "find all form fields"`
 - `tsx src/cli.ts observe "find all navigation links"`
 
-**Output**: JSON with success status and discovered elements
+**Output**: JSON with success status, discovered elements, and screenshot path
 
 ### Take Screenshots
 ```bash
@@ -118,12 +118,13 @@ tsx src/cli.ts close
 ## Best Practices
 
 1. **Always navigate first**: Before interacting with a page, navigate to the URL
-2. **Use natural language**: Describe actions as you would instruct a human
-3. **Extract with clear schemas**: Define field names and types explicitly in JSON
-4. **Handle errors gracefully**: Check the `success` field in JSON output; if an action fails, try using `observe` to understand the page better
-5. **Close when done**: Always clean up browser resources after completing tasks
-6. **Be specific**: Use precise selectors in natural language ("the blue Submit button" vs "the button")
-7. **Chain commands**: Run multiple commands sequentially without reopening the browser
+2. **📸 Always view screenshots**: After each command (navigate, act, extract, observe), use the Read tool to view the screenshot and verify the command worked correctly
+3. **Use natural language**: Describe actions as you would instruct a human
+4. **Extract with clear schemas**: Define field names and types explicitly in JSON
+5. **Handle errors gracefully**: Check the `success` field in JSON output; if an action fails, view the screenshot and try using `observe` to understand the page better
+6. **Close when done**: Always clean up browser resources after completing tasks
+7. **Be specific**: Use precise selectors in natural language ("the blue Submit button" vs "the button")
+8. **Chain commands**: Run multiple commands sequentially without reopening the browser
 
 ## Common Patterns
 

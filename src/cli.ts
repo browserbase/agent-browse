@@ -303,10 +303,12 @@ async function extract(instruction: string, schema: Record<string, string>) {
       instruction,
       schema: z.object(zodSchema),
     });
-
+    
+    const screenshotPath = await takeScreenshot(page);
     return {
       success: true,
-      data: result
+      message: `Successfully extracted data: ${result}`,
+      screenshot: screenshotPath
     };
   } catch (error) {
     return {
@@ -320,9 +322,11 @@ async function observe(query: string) {
   try {
     const { page } = await initBrowser();
     const actions = await page.observe(query);
+    const screenshotPath = await takeScreenshot(page);
     return {
       success: true,
-      data: actions
+      message: `Successfully observed: ${actions}`,
+      screenshot: screenshotPath
     };
   } catch (error) {
     return {

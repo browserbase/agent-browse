@@ -187,7 +187,48 @@ All commands output JSON with success status and relevant data.`
 
   // Only close readline when conversation is fully done
   rl.close();
+
+  // Close browser before exiting
+  await closeBrowserOnExit();
   process.exit(0);
 }
+
+async function closeBrowserOnExit() {
+  try {
+    console.log(`\n${colors.dim}Closing browser...${colors.reset}`);
+    const { spawn } = await import('child_process');
+    const closeProcess = spawn('tsx', ['src/cli.ts', 'close'], {
+      stdio: 'inherit'
+    });
+
+    // Wait for close command to complete (max 10 seconds)
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        closeProcess.kill();
+        resolve();
+      }, 10000);
+
+      closeProcess.on('close', () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+  } catch (error) {
+    // Ignore errors during cleanup
+  }
+}
+
+// Handle Ctrl+C and other termination signals
+process.on('SIGINT', async () => {
+  console.log(`\n\n${colors.dim}Interrupted. Closing browser...${colors.reset}`);
+  await closeBrowserOnExit();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log(`\n${colors.dim}Terminating. Closing browser...${colors.reset}`);
+  await closeBrowserOnExit();
+  process.exit(0);
+});
 
 main().catch(console.error);
