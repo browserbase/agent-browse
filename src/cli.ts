@@ -39,9 +39,12 @@ async function initBrowser() {
 
   // Check if Chrome is already running on the CDP port
   let chromeReady = false;
+  let wsEndpoint: string | undefined;
   try {
     const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
     if (response.ok) {
+      const data = await response.json();
+      wsEndpoint = data.webSocketDebuggerUrl;
       chromeReady = true;
       console.error('Reusing existing Chrome instance on port', cdpPort);
     }
@@ -75,6 +78,8 @@ async function initBrowser() {
       try {
         const response = await fetch(`http://127.0.0.1:${cdpPort}/json/version`);
         if (response.ok) {
+          const data = await response.json();
+          wsEndpoint = data.webSocketDebuggerUrl;
           chromeReady = true;
           weStartedChrome = true; // Mark that we started this Chrome instance
           break;
@@ -93,41 +98,16 @@ async function initBrowser() {
   // Initialize Stagehand
   stagehandInstance = new Stagehand({
     env: "LOCAL",
-    verbose: 0,
-    modelName: "anthropic/claude-haiku-4-5-20251001",
-    localBrowserLaunchOptions: {
-      cdpUrl: `http://localhost:${cdpPort}`,
-    },
+    verbose: 2,
+    model: "anthropic/claude-haiku-4-5-20251001",
+    localBrowserLaunchOptions: wsEndpoint ? {
+      cdpUrl: wsEndpoint,
+    } : undefined,
   });
 
   await stagehandInstance.init();
-  currentPage = stagehandInstance.page;
-
-  // Wait for page to be ready
-  let retries = 0;
-  while (retries < 30) {
-    try {
-      await currentPage.evaluate('document.readyState');
-      break;
-    } catch (error) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries++;
-    }
-  }
-
-  // Configure downloads
-  const downloadsPath = join(process.cwd(), 'agent', 'downloads');
-  if (!existsSync(downloadsPath)) {
-    mkdirSync(downloadsPath, { recursive: true });
-  }
-
-  const context = currentPage.context();
-  const client = await context.newCDPSession(currentPage);
-  await client.send("Browser.setDownloadBehavior", {
-    behavior: "allow",
-    downloadPath: downloadsPath,
-    eventsEnabled: true,
-  });
+  console.log('Stagehand initialized');
+  currentPage = await stagehandInstance.context.awaitActivePage();
 
   return { stagehand: stagehandInstance, page: currentPage };
 }
@@ -175,8 +155,7 @@ async function closeBrowser() {
       const tempStagehand = new Stagehand({
         env: "LOCAL",
         verbose: 0,
-        enableCaching: true,
-        modelName: "anthropic/claude-haiku-4-5-20251001",
+        model: "anthropic/claude-haiku-4-5-20251001",
         localBrowserLaunchOptions: {
           cdpUrl: `http://localhost:${cdpPort}`,
         },
@@ -256,7 +235,9 @@ async function verifyIsChromeProcess(pid: number): Promise<boolean> {
 async function navigate(url: string) {
   try {
     const { page } = await initBrowser();
+    console.log('Navigating to', url);
     await page.goto(url);
+    console.log('Navigated to', url);
     const screenshotPath = await takeScreenshot(page);
     return {
       success: true,
@@ -264,6 +245,7 @@ async function navigate(url: string) {
       screenshot: screenshotPath
     };
   } catch (error) {
+    console.error('Error navigating to', url, error);
     return {
       success: false,
       error: error instanceof Error ? error.message : String(error)
@@ -273,8 +255,8 @@ async function navigate(url: string) {
 
 async function act(action: string) {
   try {
-    const { page } = await initBrowser();
-    await page.act(action);
+    const { stagehand, page } = await initBrowser();
+    await stagehand.act(action);
     const screenshotPath = await takeScreenshot(page);
     return {
       success: true,
@@ -291,7 +273,7 @@ async function act(action: string) {
 
 async function extract(instruction: string, schema: Record<string, string>) {
   try {
-    const { page } = await initBrowser();
+    const { stagehand, page } = await initBrowser();
 
     // Convert schema to Zod
     const zodSchema: Record<string, any> = {};
@@ -309,10 +291,10 @@ async function extract(instruction: string, schema: Record<string, string>) {
       }
     }
 
-    const result = await page.extract({
+    const result = await stagehand.extract(
       instruction,
-      schema: z.object(zodSchema),
-    });
+      z.object(zodSchema),
+    );
     
     const screenshotPath = await takeScreenshot(page);
     return {
@@ -330,8 +312,8 @@ async function extract(instruction: string, schema: Record<string, string>) {
 
 async function observe(query: string) {
   try {
-    const { page } = await initBrowser();
-    const actions = await page.observe(query);
+    const { stagehand, page } = await initBrowser();
+    const actions = await stagehand.observe(query);
     const screenshotPath = await takeScreenshot(page);
     return {
       success: true,

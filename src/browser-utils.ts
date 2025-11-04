@@ -115,18 +115,15 @@ export async function takeScreenshot(page: Page) {
     mkdirSync(screenshotDir, { recursive: true });
   }
 
- const context = page.context();
- const client = await context.newCDPSession(page);
- const screenshotResult = await client.send('Page.captureScreenshot', {
-   format: 'png',
-   quality: 100,
-   fromSurface: false
+ // Use page.screenshot() directly in v3
+ const screenshotBuffer = await page.screenshot({
+   type: 'png',
  });
 
- // Save the base64 screenshot data to file with resizing if needed
+ // Save the screenshot data to file with resizing if needed
  const fs = await import('fs');
  const sharp = (await import('sharp')).default;
- const buffer = Buffer.from(screenshotResult.data, 'base64');
+ const buffer = Buffer.from(screenshotBuffer);
 
  // Check image dimensions
  const image = sharp(buffer);
