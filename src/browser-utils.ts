@@ -75,10 +75,11 @@ export function getChromeUserDataDir(): string | undefined {
 /**
  * Prepares the Chrome profile by copying it to .chrome-profile directory (first run only)
  * This should be called before initializing Stagehand to avoid timeouts
+ * @param pluginRoot The root directory of the plugin
  */
-export function prepareChromeProfile() {
+export function prepareChromeProfile(pluginRoot: string) {
   const sourceUserDataDir = getChromeUserDataDir();
-  const tempUserDataDir = join(process.cwd(), '.chrome-profile');
+  const tempUserDataDir = join(pluginRoot, '.chrome-profile');
 
   // Only copy if the temp directory doesn't exist yet
   if (!existsSync(tempUserDataDir)) {
@@ -104,11 +105,10 @@ export function prepareChromeProfile() {
 }
 
  // Use CDP to take screenshot directly
-export async function takeScreenshot(page: Page) {
-  const currentPath = process.cwd();
+export async function takeScreenshot(page: Page, pluginRoot: string) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const screenshotDir = `${currentPath}/agent/browser_screenshots`;
-  const screenshotPath = `${screenshotDir}/screenshot-${timestamp}.png`;
+  const screenshotDir = join(pluginRoot, 'agent/browser_screenshots');
+  const screenshotPath = join(screenshotDir, `screenshot-${timestamp}.png`);
 
   // Create directory if it doesn't exist
   if (!existsSync(screenshotDir)) {

@@ -13,7 +13,7 @@
       "name": "browser-automation",
       "source": "./",
       "description": "Automate web browser interactions using natural language. Use when the user asks to browse websites, navigate web pages, extract data from websites, take screenshots, fill forms, click buttons, or interact with web applications.",
-      "version": "1.0.0",
+      "version": "0.0.1",
       "author": {
         "name": "Browserbase"
       },

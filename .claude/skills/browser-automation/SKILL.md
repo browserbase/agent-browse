@@ -12,41 +12,79 @@ Automate browser interactions using Stagehand CLI with Claude. This skill provid
 
 This skill uses a CLI-based approach where Claude Code calls browser automation commands via bash. The browser stays open between commands for faster sequential operations and preserves browser state (cookies, sessions, etc.).
 
-## Prerequisites
+## Setup Verification
 
-- Google Chrome installed on your system
-- Node.js and dependencies installed (`npm install`, `pnpm install`, or `bun install`)
-- **Anthropic API key configured** (choose one):
-  - Create a `.env` file: `cp .env.example .env` and add your key
-  - Or export in terminal: `export ANTHROPIC_API_KEY="your-api-key"`
+**IMPORTANT: Before using any browser commands, you MUST check setup.json in this directory.**
+
+### First-Time Setup Check
+
+1. **Read `setup.json`** (located in `.claude/skills/browser-automation/setup.json`)
+2. **Check `setupComplete` field**:
+   - If `true`: All prerequisites are met, proceed with browser commands
+   - If `false`: Setup required - follow the steps below
+
+### If Setup is Required (`setupComplete: false`)
+
+Run these commands in the plugin directory:
+
+```bash
+# 1. Install dependencies and build (REQUIRED)
+# This automatically builds TypeScript and links the 'browser' command
+npm install
+# or: pnpm install
+# or: bun install
+
+# 2. Configure API key (REQUIRED)
+cp .env.example .env
+# Then edit .env and add: ANTHROPIC_API_KEY="your-api-key-here"
+
+# 3. Verify Chrome is installed
+# Chrome should be at standard location for your OS
+
+# 4. Test the installation
+browser navigate https://example.com
+
+# 5. If test succeeds, update setup.json
+# Set all "installed"/"configured" fields to true
+# Set "setupComplete" to true
+```
+
+### Prerequisites Summary
+
+- ✅ Google Chrome installed on your system
+- ✅ Node.js dependencies installed and TypeScript built (`npm install` runs postinstall build automatically)
+- ✅ Browser command globally available (linked during npm install)
+- ✅ Anthropic API key configured in `.env` file
+
+**DO NOT attempt to use browser commands if `setupComplete: false` in setup.json. Guide the user through setup first.**
 
 ## Available Commands
 
 ### Navigate to URLs
 ```bash
-tsx src/cli.ts navigate <url>
+browser navigate <url>
 ```
 
 **When to use**: Opening any website, loading a specific URL, going to a web page.
 
 **Example usage**:
-- `tsx src/cli.ts navigate https://example.com`
-- `tsx src/cli.ts navigate https://news.ycombinator.com`
+- `browser navigate https://example.com`
+- `browser navigate https://news.ycombinator.com`
 
 **Output**: JSON with success status, message, and screenshot path
 
 ### Interact with Pages
 ```bash
-tsx src/cli.ts act "<action>"
+browser act "<action>"
 ```
 
 **When to use**: Clicking buttons, filling forms, scrolling, selecting options, typing text.
 
 **Example usage**:
-- `tsx src/cli.ts act "click the Sign In button"`
-- `tsx src/cli.ts act "fill in the email field with test@example.com"`
-- `tsx src/cli.ts act "scroll down to the footer"`
-- `tsx src/cli.ts act "type 'laptop' in the search box and press enter"`
+- `browser act "click the Sign In button"`
+- `browser act "fill in the email field with test@example.com"`
+- `browser act "scroll down to the footer"`
+- `browser act "type 'laptop' in the search box and press enter"`
 
 **Important**: Be as specific as possible - details make a world of difference. When filling fields, you don't need to combine 'click and type'; the tool will perform a fill similar to Playwright's fill function.
 
@@ -54,7 +92,7 @@ tsx src/cli.ts act "<action>"
 
 ### Extract Data
 ```bash
-tsx src/cli.ts extract "<instruction>" '{"field": "type"}'
+browser extract "<instruction>" '{"field": "type"}'
 ```
 
 **When to use**: Scraping data, getting specific information, collecting structured content.
@@ -65,34 +103,34 @@ tsx src/cli.ts extract "<instruction>" '{"field": "type"}'
 - `"boolean"` for true/false values
 
 **Example usage**:
-- `tsx src/cli.ts extract "get the product title and price" '{"title": "string", "price": "number"}'`
-- `tsx src/cli.ts extract "get all article headlines" '{"headlines": "string"}'`
+- `browser extract "get the product title and price" '{"title": "string", "price": "number"}'`
+- `browser extract "get all article headlines" '{"headlines": "string"}'`
 
 **Output**: JSON with success status, extracted data, and screenshot path
 
 ### Discover Elements
 ```bash
-tsx src/cli.ts observe "<query>"
+browser observe "<query>"
 ```
 
 **When to use**: Understanding page structure, finding what's clickable, discovering form fields.
 
 **Example usage**:
-- `tsx src/cli.ts observe "find all clickable buttons"`
-- `tsx src/cli.ts observe "find all form fields"`
-- `tsx src/cli.ts observe "find all navigation links"`
+- `browser observe "find all clickable buttons"`
+- `browser observe "find all form fields"`
+- `browser observe "find all navigation links"`
 
 **Output**: JSON with success status, discovered elements, and screenshot path
 
 ### Take Screenshots
 ```bash
-tsx src/cli.ts screenshot
+browser screenshot
 ```
 
 **When to use**: Visual verification, documenting page state, debugging, creating records.
 
 **Notes**:
-- Screenshots are saved to `./agent/browser_screenshots/`
+- Screenshots are saved to the plugin directory's `agent/browser_screenshots/` folder
 - Images larger than 2000x2000 pixels are automatically resized
 - Filename includes timestamp for uniqueness
 
@@ -100,7 +138,7 @@ tsx src/cli.ts screenshot
 
 ### Clean Up
 ```bash
-tsx src/cli.ts close
+browser close
 ```
 
 **When to use**: After completing all browser interactions, to free up resources.
@@ -132,49 +170,49 @@ tsx src/cli.ts close
 
 ### Simple browsing task
 ```bash
-tsx src/cli.ts navigate https://example.com
-tsx src/cli.ts act "click the login button"
-tsx src/cli.ts screenshot
-tsx src/cli.ts close
+browser navigate https://example.com
+browser act "click the login button"
+browser screenshot
+browser close
 ```
 
 ### Data extraction task
 ```bash
-tsx src/cli.ts navigate https://example.com/products
-tsx src/cli.ts act "wait for page to load"
-tsx src/cli.ts extract "get all products" '{"name": "string", "price": "number"}'
-tsx src/cli.ts close
+browser navigate https://example.com/products
+browser act "wait for page to load"
+browser extract "get all products" '{"name": "string", "price": "number"}'
+browser close
 ```
 
 ### Multi-step interaction
 ```bash
-tsx src/cli.ts navigate https://example.com/login
-tsx src/cli.ts act "fill in email with user@example.com"
-tsx src/cli.ts act "fill in password with mypassword"
-tsx src/cli.ts act "click the submit button"
-tsx src/cli.ts screenshot
-tsx src/cli.ts close
+browser navigate https://example.com/login
+browser act "fill in email with user@example.com"
+browser act "fill in password with mypassword"
+browser act "click the submit button"
+browser screenshot
+browser close
 ```
 
 ### Debugging workflow
 ```bash
-tsx src/cli.ts navigate https://example.com
-tsx src/cli.ts screenshot
-tsx src/cli.ts observe "find all buttons"
-tsx src/cli.ts act "click the specific button"
-tsx src/cli.ts screenshot
-tsx src/cli.ts close
+browser navigate https://example.com
+browser screenshot
+browser observe "find all buttons"
+browser act "click the specific button"
+browser screenshot
+browser close
 ```
 
 ## Troubleshooting
 
-**Page not loading**: Wait a few seconds after navigation before acting. You can explicitly: `tsx src/cli.ts act "wait for the page to fully load"`
+**Page not loading**: Wait a few seconds after navigation before acting. You can explicitly: `browser act "wait for the page to fully load"`
 
 **Element not found**: Use `observe` to discover what elements are actually available on the page
 
 **Action fails**: Be more specific in natural language description. Instead of "click the button", try "click the blue Submit button in the form"
 
-**Screenshots missing**: Check the `./agent/browser_screenshots/` directory for saved files
+**Screenshots missing**: Check the plugin directory's `agent/browser_screenshots/` folder for saved files
 
 **Chrome not found**: Install Google Chrome or the CLI will show an error with installation instructions
 

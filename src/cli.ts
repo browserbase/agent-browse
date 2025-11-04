@@ -2,11 +2,27 @@
 import { Stagehand } from '@browserbasehq/stagehand';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
-import { join } from 'path';
+import { join, resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { findLocalChrome, prepareChromeProfile, takeScreenshot } from './browser-utils.js';
 import { z } from 'zod';
 import dotenv from 'dotenv';
-dotenv.config({ quiet: true });
+
+// Validate ES module environment
+if (!import.meta.url) {
+  console.error('Error: This script must be run as an ES module');
+  console.error('Ensure your package.json has "type": "module" and Node.js version is 14+');
+  process.exit(1);
+}
+
+// Resolve plugin root directory from script location
+// In production (compiled): dist/src/cli.js -> dist/src -> dist -> plugin-root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PLUGIN_ROOT = resolve(__dirname, '..', '..');
+
+// Load .env from plugin root directory
+dotenv.config({ path: join(PLUGIN_ROOT, '.env'), quiet: true });
 
 // Check for API key
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -35,7 +51,7 @@ async function initBrowser() {
   }
 
   const cdpPort = 9222;
-  const tempUserDataDir = join(process.cwd(), '.chrome-profile');
+  const tempUserDataDir = join(PLUGIN_ROOT, '.chrome-profile');
 
   // Check if Chrome is already running on the CDP port
   let chromeReady = false;
@@ -63,7 +79,7 @@ async function initBrowser() {
 
     // Store PID for safe cleanup later
     if (chromeProcess.pid) {
-      const pidFilePath = join(process.cwd(), '.chrome-pid');
+      const pidFilePath = join(PLUGIN_ROOT, '.chrome-pid');
       writeFileSync(pidFilePath, JSON.stringify({
         pid: chromeProcess.pid,
         startTime: Date.now()
@@ -116,7 +132,7 @@ async function initBrowser() {
   }
 
   // Configure downloads
-  const downloadsPath = join(process.cwd(), 'agent', 'downloads');
+  const downloadsPath = join(PLUGIN_ROOT, 'agent', 'downloads');
   if (!existsSync(downloadsPath)) {
     mkdirSync(downloadsPath, { recursive: true });
   }
@@ -134,7 +150,7 @@ async function initBrowser() {
 
 async function closeBrowser() {
   const cdpPort = 9222;
-  const pidFilePath = join(process.cwd(), '.chrome-pid');
+  const pidFilePath = join(PLUGIN_ROOT, '.chrome-pid');
 
   // First, try to close via Stagehand if we have an instance in this process
   if (stagehandInstance) {
@@ -257,7 +273,7 @@ async function navigate(url: string) {
   try {
     const { page } = await initBrowser();
     await page.goto(url);
-    const screenshotPath = await takeScreenshot(page);
+    const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
       message: `Successfully navigated to ${url}`,
@@ -275,7 +291,7 @@ async function act(action: string) {
   try {
     const { page } = await initBrowser();
     await page.act(action);
-    const screenshotPath = await takeScreenshot(page);
+    const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
       message: `Successfully performed action: ${action}`,
@@ -313,8 +329,8 @@ async function extract(instruction: string, schema: Record<string, string>) {
       instruction,
       schema: z.object(zodSchema),
     });
-    
-    const screenshotPath = await takeScreenshot(page);
+
+    const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
       message: `Successfully extracted data: ${result}`,
@@ -332,7 +348,7 @@ async function observe(query: string) {
   try {
     const { page } = await initBrowser();
     const actions = await page.observe(query);
-    const screenshotPath = await takeScreenshot(page);
+    const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
       message: `Successfully observed: ${actions}`,
@@ -349,7 +365,7 @@ async function observe(query: string) {
 async function screenshot() {
   try {
     const { page } = await initBrowser();
-    const screenshotPath = await takeScreenshot(page);
+    const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
       screenshot: screenshotPath
@@ -365,7 +381,7 @@ async function screenshot() {
 // Main CLI handler
 async function main() {
   // Prepare Chrome profile on first run
-  prepareChromeProfile();
+  prepareChromeProfile(PLUGIN_ROOT);
 
   const args = process.argv.slice(2);
   const command = args[0];
