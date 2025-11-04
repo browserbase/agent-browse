@@ -6,7 +6,17 @@ import { join } from 'path';
 import { findLocalChrome, prepareChromeProfile, takeScreenshot } from './browser-utils.js';
 import { z } from 'zod';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ quiet: true });
+
+// Check for API key
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error('Error: ANTHROPIC_API_KEY not found.');
+  console.error('\nTo set up your API key, choose one option:');
+  console.error('  1. (RECOMMENDED) Export in terminal: export ANTHROPIC_API_KEY="your-api-key"');
+  console.error('  2. Create a .env file: cp .env.example .env');
+  console.error('     Then edit .env and add your API key');
+  process.exit(1);
+}
 
 // Persistent browser state
 let stagehandInstance: Stagehand | null = null;
