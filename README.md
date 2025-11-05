@@ -45,8 +45,7 @@ Claude will handle the rest.
 ### Chrome not found
 
 Install Chrome for your platform:
-- **macOS**: https://www.google.com/chrome/
-- **Windows**: https://www.google.com/chrome/
+- **macOS** or **Windows**: https://www.google.com/chrome/
 - **Linux**: `sudo apt install google-chrome-stable`
 
 ### Profile refresh
