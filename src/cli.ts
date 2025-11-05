@@ -191,7 +191,6 @@ async function closeBrowser() {
       const tempStagehand = new Stagehand({
         env: "LOCAL",
         verbose: 0,
-        enableCaching: true,
         modelName: "anthropic/claude-haiku-4-5-20251001",
         localBrowserLaunchOptions: {
           cdpUrl: `http://localhost:${cdpPort}`,
@@ -305,35 +304,57 @@ async function act(action: string) {
   }
 }
 
-async function extract(instruction: string, schema: Record<string, string>) {
+async function extract(instruction: string, schema?: Record<string, string>) {
   try {
     const { page } = await initBrowser();
 
-    // Convert schema to Zod
-    const zodSchema: Record<string, any> = {};
-    for (const [key, type] of Object.entries(schema)) {
-      switch (type) {
-        case "string":
-          zodSchema[key] = z.string();
-          break;
-        case "number":
-          zodSchema[key] = z.number();
-          break;
-        case "boolean":
-          zodSchema[key] = z.boolean();
-          break;
+    let zodSchemaObject;
+
+    // Try to convert schema to Zod if provided
+    if (schema) {
+      try {
+        const zodSchema: Record<string, any> = {};
+        let hasValidTypes = true;
+
+        for (const [key, type] of Object.entries(schema)) {
+          switch (type) {
+            case "string":
+              zodSchema[key] = z.string();
+              break;
+            case "number":
+              zodSchema[key] = z.number();
+              break;
+            case "boolean":
+              zodSchema[key] = z.boolean();
+              break;
+            default:
+              console.error(`Warning: Unsupported schema type "${type}" for field "${key}". Proceeding without schema validation.`);
+              hasValidTypes = false;
+              break;
+          }
+        }
+
+        if (hasValidTypes && Object.keys(zodSchema).length > 0) {
+          zodSchemaObject = z.object(zodSchema);
+        }
+      } catch (schemaError) {
+        console.error('Warning: Failed to convert schema. Proceeding without schema validation:',
+          schemaError instanceof Error ? schemaError.message : String(schemaError));
       }
     }
 
-    const result = await page.extract({
-      instruction,
-      schema: z.object(zodSchema),
-    });
+    // Extract with or without schema
+    const extractOptions: any = { instruction };
+    if (zodSchemaObject) {
+      extractOptions.schema = zodSchemaObject;
+    }
+
+    const result = await page.extract(extractOptions);
 
     const screenshotPath = await takeScreenshot(page, PLUGIN_ROOT);
     return {
       success: true,
-      message: `Successfully extracted data: ${result}`,
+      message: `Successfully extracted data: ${JSON.stringify(result)}`,
       screenshot: screenshotPath
     };
   } catch (error) {
@@ -405,11 +426,11 @@ async function main() {
         break;
 
       case 'extract':
-        if (args.length < 3) {
-          throw new Error('Usage: browser extract "<instruction>" \'{"field": "type"}\'');
+        if (args.length < 2) {
+          throw new Error('Usage: browser extract "<instruction>" [\'{"field": "type"}\']');
         }
         const instruction = args[1];
-        const schema = JSON.parse(args[2]);
+        const schema = args[2] ? JSON.parse(args[2]) : undefined;
         result = await extract(instruction, schema);
         break;
 
