@@ -38,6 +38,10 @@ npm install
 npm link
 
 # 3. Configure API key (REQUIRED)
+# Option 1 (RECOMMENDED): Export in your terminal
+export ANTHROPIC_API_KEY="your-api-key-here"
+
+# Option 2: Or use .env file
 cp .env.example .env
 # Then edit .env and add: ANTHROPIC_API_KEY="your-api-key-here"
 
@@ -57,7 +61,7 @@ browser navigate https://example.com
 - ✅ Google Chrome installed on your system
 - ✅ Node.js dependencies installed and TypeScript built (`npm install` runs build automatically)
 - ✅ Browser command globally available (`npm link` creates the global symlink)
-- ✅ Anthropic API key configured in `.env` file
+- ✅ Anthropic API key configured (exported as `ANTHROPIC_API_KEY` environment variable or in `.env` file)
 
 **DO NOT attempt to use browser commands if `setupComplete: false` in setup.json. Guide the user through setup first.**
 
@@ -95,19 +99,22 @@ browser act "<action>"
 
 ### Extract Data
 ```bash
-browser extract "<instruction>" '{"field": "type"}'
+browser extract "<instruction>" ['{"field": "type"}']
 ```
 
 **When to use**: Scraping data, getting specific information, collecting structured content.
 
-**Schema format**: JSON object where keys are field names and values are types:
+**Schema format** (optional): JSON object where keys are field names and values are types:
 - `"string"` for text
 - `"number"` for numeric values
 - `"boolean"` for true/false values
 
+**Note**: The schema parameter is optional. If omitted or if schema validation fails, extraction will proceed without type validation.
+
 **Example usage**:
 - `browser extract "get the product title and price" '{"title": "string", "price": "number"}'`
 - `browser extract "get all article headlines" '{"headlines": "string"}'`
+- `browser extract "get the page title"` (no schema)
 
 **Output**: JSON with success status, extracted data, and screenshot path
 
@@ -184,6 +191,8 @@ browser close
 browser navigate https://example.com/products
 browser act "wait for page to load"
 browser extract "get all products" '{"name": "string", "price": "number"}'
+# Or without schema:
+# browser extract "get the page content"
 browser close
 ```
 
