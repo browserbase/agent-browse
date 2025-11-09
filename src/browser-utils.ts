@@ -1,4 +1,3 @@
-import { Page } from '@browserbasehq/stagehand';
 import { existsSync, cpSync, mkdirSync } from 'fs';
 import { platform } from 'os';
 import { join } from 'path';
@@ -104,8 +103,9 @@ export function prepareChromeProfile(pluginRoot: string) {
   }
 }
 
+// TODO: update stagehand page object
  // Use CDP to take screenshot directly
-export async function takeScreenshot(page: Page, pluginRoot: string) {
+export async function takeScreenshot(page: any, pluginRoot: string) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const screenshotDir = join(pluginRoot, 'agent/browser_screenshots');
   const screenshotPath = join(screenshotDir, `screenshot-${timestamp}.png`);
