@@ -1,0 +1,7 @@
+interface:
+  display_name: "Context Sync"
+  short_description: "Sync a local Chrome profile to Browserbase"
+  default_prompt: "Use $context-sync to copy my local Chrome profile state into a Browserbase Context."
+
+policy:
+  allow_implicit_invocation: true
