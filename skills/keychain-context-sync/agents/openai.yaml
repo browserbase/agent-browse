@@ -1,0 +1,7 @@
+interface:
+  display_name: "Keychain Context Sync"
+  short_description: "Sync Chrome cookies from macOS Keychain"
+  default_prompt: "Use $keychain-context-sync to inspect my Chrome cookies at rest using macOS Keychain consent."
+
+policy:
+  allow_implicit_invocation: true
