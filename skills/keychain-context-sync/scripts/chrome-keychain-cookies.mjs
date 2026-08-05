@@ -187,7 +187,7 @@ function chromeSameSite(value) {
   return undefined;
 }
 
-async function inspect(options) {
+export function readCookiesFromKeychain(options) {
   if (process.platform !== 'darwin') throw new Error('Keychain inspection is supported only on macOS');
   const source = join(options.profileDir, 'Cookies');
   if (!existsSync(source)) throw new Error(`Chrome cookie database not found: ${source}`);
@@ -202,20 +202,33 @@ async function inspect(options) {
     safeStoragePassword = requestSafeStoragePassword(options.keychainService, options.keychainAccount);
     key = deriveChromeKey(safeStoragePassword);
     const result = decryptCookieRows(rows, schemaVersion, key);
-
-    console.log('Chrome cookie database inspected without CDP.');
-    console.log(`Schema version: ${schemaVersion}`);
-    console.log(`Rows: ${rows.length}`);
-    console.log(`Decrypted encrypted rows: ${result.encrypted - result.failed}`);
-    console.log(`Plaintext rows: ${result.plaintext}`);
-    console.log(`Failures: ${result.failed}`);
-    console.log('No cookie values, names, domains, or secrets were printed or written.');
-    if (result.failed > 0) process.exitCode = 2;
+    return {
+      cookies: result.cookies,
+      summary: {
+        schemaVersion,
+        rows: rows.length,
+        decrypted: result.encrypted - result.failed,
+        plaintext: result.plaintext,
+        failed: result.failed,
+      },
+    };
   } finally {
     safeStoragePassword?.fill(0);
     key?.fill(0);
     rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+async function inspect(options) {
+  const { summary } = readCookiesFromKeychain(options);
+  console.log('Chrome cookie database inspected without CDP.');
+  console.log(`Schema version: ${summary.schemaVersion}`);
+  console.log(`Rows: ${summary.rows}`);
+  console.log(`Decrypted encrypted rows: ${summary.decrypted}`);
+  console.log(`Plaintext rows: ${summary.plaintext}`);
+  console.log(`Failures: ${summary.failed}`);
+  console.log('No cookie values, names, domains, or secrets were printed or written.');
+  if (summary.failed > 0) process.exitCode = 2;
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
