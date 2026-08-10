@@ -138,6 +138,8 @@ node "$PRICE_INTELLIGENCE_CONTROLLER" report --run current
 
 `report` prints the comparison, chooses the lowest-priced eligible exact match, stops the five Browse daemons, deletes the paid MPP sessions, stops the localhost viewer, and scrubs stored capability URLs. Successfully deleted session identifiers are removed; a failed deletion keeps only the private gateway ID needed for `stop` to retry.
 
+If the payment provider returns malformed data without any usable session identifier, the controller cannot target a session for deletion. It retains that response in the mode-restricted run directory for diagnosis, reports `stopped_with_warning`, and allows future runs instead of permanently locking the skill. Tell the user to inspect their provider dashboard for an unidentified session; never print the retained response.
+
 Show the stdout table and cleanup confirmation. Return the recommended retailer and direct product link. If no exact purchasable result exists, say so rather than promoting an out-of-stock, uncertain, or ineligible listing.
 
 The controller does not close the user's native viewer tab; the disconnected localhost page can be closed manually.

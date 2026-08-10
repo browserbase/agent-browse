@@ -174,28 +174,41 @@ async function readJson(filePath) {
 
 function childEnvironment(extra = {}) {
   const exactKeys = new Set([
-    "PATH",
-    "HOME",
-    "USER",
-    "LOGNAME",
-    "TMPDIR",
-    "SHELL",
-    "TERM",
-    "LANG",
-    "XDG_CONFIG_HOME",
-    "XDG_DATA_HOME",
-    "XDG_CACHE_HOME",
-    "SSL_CERT_FILE",
-    "SSL_CERT_DIR",
-    "NODE_EXTRA_CA_CERTS",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
+    "path",
+    "home",
+    "user",
+    "logname",
+    "tmpdir",
+    "tmp",
+    "temp",
+    "shell",
+    "term",
+    "lang",
+    "xdg_config_home",
+    "xdg_data_home",
+    "xdg_cache_home",
+    "ssl_cert_file",
+    "ssl_cert_dir",
+    "node_extra_ca_certs",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "systemroot",
+    "windir",
+    "comspec",
+    "userprofile",
+    "appdata",
+    "localappdata",
+    "pathext",
   ]);
-  const allowedPrefixes = ["LC_", "BROWSERBASE_", "TEMPO_", "BB_"];
+  const allowedPrefixes = ["lc_", "browserbase_", "tempo_", "bb_"];
   const selected = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (exactKeys.has(key) || allowedPrefixes.some((prefix) => key.startsWith(prefix))) {
+    const normalizedKey = key.toLowerCase();
+    if (
+      exactKeys.has(normalizedKey) ||
+      allowedPrefixes.some((prefix) => normalizedKey.startsWith(prefix))
+    ) {
       selected[key] = value;
     }
   }
@@ -366,6 +379,20 @@ async function removePaymentArtifacts(runDir, slot) {
   await rm(path.join(runDir, `.mpp-meta-${slot}.json`), { force: true });
 }
 
+async function quarantinePaymentArtifacts(runDir, slot) {
+  const quarantineDir = path.join(runDir, "unresolved");
+  await mkdir(quarantineDir, { recursive: true, mode: 0o700 });
+  await chmod(quarantineDir, 0o700).catch(() => {});
+  const suffix = Date.now();
+  for (const kind of ["response", "meta"]) {
+    const source = path.join(runDir, `.mpp-${kind}-${slot}.json`);
+    if (!existsSync(source)) continue;
+    const destination = path.join(quarantineDir, `mpp-${kind}-${slot}-${suffix}.json`);
+    await rename(source, destination);
+    await chmod(destination, 0o600);
+  }
+}
+
 async function recoverPaymentArtifacts(runDir, state) {
   const entries = await readdir(runDir).catch(() => []);
   const responseFiles = entries.filter((entry) => /^\.mpp-response-\d+\.json$/.test(entry));
@@ -425,7 +452,7 @@ async function assertNoActiveRun() {
   const statePath = path.join(runDir, "run.json");
   if (!existsSync(statePath)) return;
   const state = await readJson(statePath);
-  if (!["stopped", "self-test"].includes(state.status)) {
+  if (!["stopped", "stopped_with_warning", "self-test"].includes(state.status)) {
     throw new Error(
       "An active price-intelligence run already exists; inspect it with status and stop it before starting another",
     );
@@ -639,19 +666,32 @@ async function cleanupState(runDir, state, quiet = false, setCurrent = true) {
   });
   state.server = viewerCleanup.complete ? null : state.server;
   if (viewerCleanup.complete) await rm(path.join(runDir, "server.json"), { force: true });
+  const unresolvedPaymentSlots = new Set([
+    ...(state.unresolvedPaymentSlots || []),
+    ...recovered.unrecoveredSlots,
+  ]);
+  for (const slot of recovered.unrecoveredSlots) {
+    await quarantinePaymentArtifacts(runDir, slot);
+  }
+  state.unresolvedPaymentSlots = [...unresolvedPaymentSlots].sort((left, right) => left - right);
   const failedSlots = new Set([
     ...state.sessions
       .filter((session) => session.mppStatus === "delete_failed")
       .map((session) => session.slot),
-    ...recovered.unrecoveredSlots,
   ]);
   const failedCleanupItems = failedSlots.size + (viewerCleanup.complete ? 0 : 1);
-  state.status = failedCleanupItems === 0 ? "stopped" : "cleanup_failed";
+  state.status = failedCleanupItems > 0
+    ? "cleanup_failed"
+    : unresolvedPaymentSlots.size > 0
+      ? "stopped_with_warning"
+      : "stopped";
   state.cleanupAttemptedAt = new Date().toISOString();
-  if (state.status === "stopped") state.stoppedAt = state.cleanupAttemptedAt;
+  if (["stopped", "stopped_with_warning"].includes(state.status)) {
+    state.stoppedAt = state.cleanupAttemptedAt;
+  }
   await writeState(runDir, state, setCurrent);
   for (const session of sessions) {
-    if (!failedSlots.has(session.slot)) {
+    if (!failedSlots.has(session.slot) && !unresolvedPaymentSlots.has(session.slot)) {
       await removePaymentArtifacts(runDir, session.slot);
     }
   }
@@ -664,8 +704,18 @@ async function cleanupState(runDir, state, quiet = false, setCurrent = true) {
         `Cleanup incomplete: ${failedCleanupItems} cleanup item(s) must be retried with stop --run current.`,
       );
     }
+    if (unresolvedPaymentSlots.size > 0) {
+      console.log(
+        `Cleanup warning: ${unresolvedPaymentSlots.size} malformed payment response(s) were retained privately for diagnosis; no session identifier was available, and future runs remain available.`,
+      );
+    }
   }
-  return { browseStopped, mppDeleted, failedCleanupItems };
+  return {
+    browseStopped,
+    mppDeleted,
+    failedCleanupItems,
+    unresolvedPayments: unresolvedPaymentSlots.size,
+  };
 }
 
 async function commandStartLocked(args, lock) {
@@ -787,6 +837,11 @@ async function commandStartLocked(args, lock) {
     if (cleanup.failedCleanupItems > 0) {
       console.error(
         `Cleanup incomplete: ${cleanup.failedCleanupItems} paid-session cleanup item(s) require stop --run current.`,
+      );
+    }
+    if (cleanup.unresolvedPayments > 0) {
+      console.error(
+        `Cleanup warning: ${cleanup.unresolvedPayments} malformed payment response(s) were retained privately without blocking future runs.`,
       );
     }
     throw error;
@@ -1044,7 +1099,7 @@ async function commandReportLocked(args) {
   if (
     state.sessions.length > 0 &&
     recordedResults === state.sessions.length &&
-    !["stopped", "self-test"].includes(state.status)
+    !["stopped", "stopped_with_warning", "self-test"].includes(state.status)
   ) {
     console.log("\nComparison complete. Cleaning up paid browsers and viewer…");
     const cleanup = await cleanupState(runDir, state);
@@ -1092,7 +1147,7 @@ async function commandStop(args) {
 async function commandViewerLocked(args) {
   const runDir = await resolveRun(args.run);
   const state = await readJson(path.join(runDir, "run.json"));
-  if (state.status === "stopped") {
+  if (["stopped", "stopped_with_warning"].includes(state.status)) {
     throw new Error("Cannot reopen the viewer for a stopped run");
   }
   if (state.server?.pid) {
