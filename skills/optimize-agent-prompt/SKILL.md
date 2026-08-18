@@ -1,14 +1,15 @@
 ---
 name: optimize-agent-prompt
-description: Builds and improves Browserbase Agent API demos through an Autobrowse-style outer loop: run a fixed task, collect Agent messages and session logs, score the result, revise one system-prompt heuristic, and confirm convergence. Use when creating a Browserbase Agents demo or POC, optimizing an Agent system prompt, diagnosing flaky Agent runs, or applying auto-research/autobrowse to the Browserbase Agents API.
+description: "Builds and improves Browserbase Agent API demos through an Autobrowse-style outer loop: run a fixed task, collect Agent messages and session logs, score the result, revise one system-prompt heuristic, and confirm convergence. Use when creating a Browserbase Agents demo or POC, optimizing an Agent system prompt, diagnosing flaky Agent runs, or applying auto-research/autobrowse to the Browserbase Agents API."
 license: MIT
-compatibility: "Requires Node.js 18+ and BROWSERBASE_API_KEY. Uses only Node built-ins."
 allowed-tools: Bash Read Write Edit Grep Glob
 ---
 
 # Optimize Agent Prompt
 
 Optimize a Browserbase Agent's `systemPrompt` while holding its task, result schema, variables, and evaluation criteria fixed. Treat the outer agent as the teacher and each Browserbase Agent run as an inner-agent rollout.
+
+Use Node.js 18 or later and set `BROWSERBASE_API_KEY`. The harness uses only Node.js built-in modules.
 
 ## Set up the experiment
 

@@ -56,7 +56,7 @@ async function optionalApi(apiKey, pathname) {
 function score(run, taskConfig) {
   const output = run.result?.output ?? run.result ?? {};
   const required = taskConfig.resultSchema?.required ?? [];
-  const present = required.filter((key) => output[key] !== null && output[key] !== undefined && output[key] !== "");
+  const present = required.filter((key) => Object.hasOwn(output, key) && output[key] !== undefined && output[key] !== "");
   const coverage = required.length ? present.length / required.length : 1;
   const checks = Object.entries(taskConfig.evaluation?.fieldPatterns ?? {}).map(([key, pattern]) => ({
     key,
@@ -92,6 +92,14 @@ function summarizeLogs(logs) {
   return { count: logs.length, methods: Object.fromEntries(Object.entries(methods).sort((a, b) => b[1] - a[1])) };
 }
 
+function runDurationMs(run) {
+  const taskDuration = run.result?.taskDuration;
+  if (Number.isFinite(taskDuration) && taskDuration >= 0) return taskDuration;
+  if (!run.startedAt || !run.endedAt) return null;
+  const duration = Date.parse(run.endedAt) - Date.parse(run.startedAt);
+  return Number.isFinite(duration) && duration >= 0 ? duration : null;
+}
+
 async function loadOrCreateAgent(apiKey, workspace, prompt, config, name) {
   const stateFile = path.join(workspace, "state.json");
   let state;
@@ -109,7 +117,7 @@ async function poll(apiKey, runId, { pollMs, timeoutMs, maxMessages }) {
   const messages = [];
   let since;
   let stopRequested = false;
-  while (Date.now() - started < timeoutMs) {
+  while (true) {
     const query = new URLSearchParams({ all: "true" });
     if (since) query.set("since", since);
     const page = await api(apiKey, `/agents/runs/${runId}/messages?${query}`);
@@ -118,15 +126,13 @@ async function poll(apiKey, runId, { pollMs, timeoutMs, maxMessages }) {
     const run = await api(apiKey, `/agents/runs/${runId}`);
     process.stderr.write(`\r${run.status.padEnd(10)} messages=${messages.length}`);
     if (TERMINAL.has(run.status)) { process.stderr.write("\n"); return { run, messages }; }
-    if (!stopRequested && messages.length >= maxMessages) {
+    if (!stopRequested && (messages.length >= maxMessages || Date.now() - started >= timeoutMs)) {
       await api(apiKey, `/agents/runs/${runId}/stop`, { method: "POST" });
       stopRequested = true;
       process.stderr.write(" stop=requested");
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
-  if (!stopRequested) await api(apiKey, `/agents/runs/${runId}/stop`, { method: "POST" });
-  throw new Error(`Run ${runId} exceeded timeout ${timeoutMs}ms; stop requested`);
 }
 
 async function initWorkspace(args) {
@@ -183,7 +189,7 @@ async function runIteration(args) {
   const summary = {
     label,
     status: run.status,
-    durationMs: run.startedAt && run.endedAt ? Date.parse(run.endedAt) - Date.parse(run.startedAt) : null,
+    durationMs: runDurationMs(run),
     normalizedResult: run.result?.output ?? run.result ?? null,
     cause: run.cause ?? null,
     score: score(run, config),

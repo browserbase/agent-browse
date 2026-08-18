@@ -66,6 +66,8 @@ The requested JSON Schema payload is normally at `result.output`; runner metadat
 const output = run.result?.output ?? run.result ?? null;
 ```
 
+Use `result.taskDuration` for the run duration in milliseconds. If it is unavailable, calculate the duration from `startedAt` and `endedAt` when both timestamps are present.
+
 ### Stop a spiral
 
 `POST /agents/runs/{runId}/stop`
