@@ -2,7 +2,7 @@
 name: fetch-event-receipts
 description: "Retrieve event/catering receipts from DoorDash, ezCater, or Instacart through a headless Browserbase session using the named persistent context `catering-agent`, match each receipt to a Ramp card transaction by vendor, date, currency, and exact amount, and optionally attach it with the Ramp CLI. Use for event-receipt retrieval, missing-receipt cleanup, or the Ramp Agent Identity + Browserbase Contexts demo. Do not use for ordering food, reimbursements, or non-card invoices."
 license: MIT
-compatibility: "Requires browse CLI 0.9.5+, Ramp CLI 0.2.24+, jq, unzip, file, and authenticated Browserbase and Ramp accounts."
+compatibility: "Requires browse CLI 0.9.5+, Ramp CLI 0.2.24+, jq, unzip, ripgrep (rg), file, and authenticated Browserbase and Ramp accounts."
 allowed-tools: Bash Read Grep
 ---
 
@@ -234,9 +234,11 @@ order or more than one order matches, stop and report the ambiguity.
 
 ## 4. Retrieve the receipt artifact
 
-Prefer the portal's Download Receipt/PDF control. After initiating a remote
-download, poll the session archive until it is a valid ZIP containing a
-supported file. Do not tear down the driver on a fixed timer:
+Choose one artifact path while the browser is still attached.
+
+For a Download Receipt/PDF control, initiate the download and poll the session
+archive until it is a valid ZIP containing a supported file. Do not tear down
+the driver on a fixed timer:
 
 ```bash
 download_ready=false
@@ -255,10 +257,36 @@ done
   printf '%s\n' 'Escalation: receipt download did not complete.' >&2
   exit 1
 }
+unzip -q "$receipt_workdir/downloads.zip" -d "$receipt_workdir/downloads"
+```
 
+If the portal has no receipt-download control but displays the complete final
+receipt, capture it before stopping the driver. This is the normal Instacart
+personal-account fallback, not a step that runs after download failure:
+
+```bash
+browse screenshot --full-page \
+  --path "$receipt_workdir/receipt.png" \
+  --session "$driver_session"
+```
+
+If a download control fails but the complete final receipt remains rendered,
+switch to the screenshot path only after revalidating that the page includes all
+required receipt fields. Otherwise escalate. Do not upload an order-summary
+screenshot that omits the final charged total.
+
+Select exactly one supported receipt file (`pdf`, `png`, `jpg`, `jpeg`, `heic`,
+or `webp`) and inspect its MIME type and size. Render or extract the artifact and
+re-confirm vendor, charged/placed date, independently established currency,
+final charged amount, and final status from the artifact itself. Page matching
+alone is insufficient because a generic or stale download may be returned.
+
+Only after the artifact passes validation, release the local driver and remote
+session:
+
+```bash
 browse stop --session "$driver_session"
 browse cloud sessions update "$browserbase_session_id" --status REQUEST_RELEASE
-unzip -q "$receipt_workdir/downloads.zip" -d "$receipt_workdir/downloads"
 ```
 
 Poll the remote session and release the local lock only after completion:
@@ -290,22 +318,6 @@ done
 On `ERROR`, `TIMED_OUT`, an unknown state, or a polling timeout, keep the lock
 and escalate for read-only session inspection. Never overlap sessions or assume
 that stopping the local driver released the remote browser.
-
-Select exactly one supported receipt file (`pdf`, `png`, `jpg`, `jpeg`, `heic`,
-or `webp`) and inspect its MIME type and size. Render or extract the artifact and
-re-confirm vendor, charged/placed date, independently established currency,
-final charged amount, and final status from the artifact itself. Page matching
-alone is insufficient because a generic or stale download may be returned. If
-the portal exposes only a rendered receipt page, capture that page before
-stopping the driver:
-
-```bash
-browse screenshot --full-page \
-  --path "$receipt_workdir/receipt.png" \
-  --session "$driver_session"
-```
-
-Do not upload an order-summary screenshot that omits the final charged total.
 
 ## 5. Attach through Ramp
 
