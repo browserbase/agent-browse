@@ -5,8 +5,8 @@ expired.
 
 ## Availability and ownership
 
-Ramp currently describes standalone agents as private preview / limited early
-access. If an admin cannot see **Company > Agents**, stop and request enablement
+Ramp currently describes standalone agents as limited early access. If an admin
+cannot see **Company > Agents**, stop and request enablement
 through <https://agents.ramp.com/> or `agents@ramp.com`. Never include a Client
 secret or token in that request.
 
@@ -32,7 +32,7 @@ In **Company > Agents**, create:
 
 ```text
 Agent: Catering Receipt Agent
-Job: Match final catering/vendor receipts to exact card transactions and attach them.
+Job: Match final DoorDash catering receipts to exact card transactions and attach them.
 Role: Receipt Cleanup Agent Role
 Boundary: Cannot spend, approve, pay, edit policy, or operate outside confirmed receipt cleanup.
 ```
@@ -65,11 +65,17 @@ receipt helper must complete its no-write `--dry_run` and show the expected
 `/developer/v1/agent-tools/upload-receipt-file` endpoint, intended transaction
 UUID, MIME type, and redacted base64 field.
 
-Before login, compare the non-secret expected Client ID from provisioning with
-the one active `Catering Receipt Agent` and confirm it has `Receipt Cleanup Agent
-Role`. Use an admin business-authenticated CLI or UI only for this read-only
-identity check. Directory naming is not identity proof. Do not use that human
-session for the receipt run.
+Before login, an admin must open **Company > Agents > Catering Receipt Agent**
+and confirm its active status, accountable owner, `Receipt Cleanup Agent Role`,
+and non-secret Client ID against the approved provisioning record. A standalone
+credential cannot assume it may list the business's agents; treat `ramp agent
+list` as optional rather than an identity-proof prerequisite. Directory naming
+and scopes are not identity proof. Do not use the admin's human session for the
+receipt run.
+
+For a recorded demo, capture this setup surface separately if it contains no
+unapproved private data. It proves the identity and permissions, not that the
+identity performed a later receipt upload.
 
 ## Isolated runtime login
 
@@ -102,8 +108,9 @@ ramp --env production auth status
 
 Then run one small read-only transaction query under the same prefix. A
 successful auth status alone proves neither the expected identity nor permission
-correctness. The runtime login must have used the exact Client ID verified above;
-if the principal cannot be tied back to it, stop before reads or writes.
+correctness. For the demo, perform a fresh client-credential login with the
+exact Client ID verified above instead of relying only on cached config state.
+If the principal cannot be tied back to that login, stop before reads or writes.
 
 Standalone-agent access tokens do not refresh automatically. When an unattended
 or long-running runtime receives an auth-expiry error, repeat the client-

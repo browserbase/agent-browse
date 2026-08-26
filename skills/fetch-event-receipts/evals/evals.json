@@ -7,29 +7,39 @@
       "expected_output": "A single exact order-to-transaction match, a validated final receipt artifact, a no-write Ramp dry run followed by the authorized attachment, and a result containing the Ramp transaction UUID and Browserbase session UUID.",
       "assertions": [
         "The browser session loads the named catering-agent context and never exposes its CDP URL or cookies",
-        "The match requires vendor, charged date, independently established USD currency, and 18427 integer minor units",
+        "The match requires DoorDash merchant, charged date, US/USD-consistent order context, and 18427 integer minor units",
         "The workflow rechecks Ramp missing-receipt state before and after the upload",
         "The result records both required UUIDs without credentials or receipt base64"
       ]
     },
     {
       "id": 2,
-      "prompt": "Two ezCater orders have the same final total on the transaction date. Fetch the receipt and clean up the Ramp transaction.",
+      "prompt": "Two DoorDash orders have the same final total on the transaction date. Fetch the receipt and clean up the Ramp transaction.",
       "expected_output": "An escalated result that lists the ambiguity without attaching either receipt.",
       "assertions": [
         "The workflow does not weaken exact matching or choose the first candidate",
         "No receipt upload occurs when more than one order remains",
-        "The escalation reports the vendor-match stage and an ambiguity reason"
+        "The escalation reports the doordash-match stage and an ambiguity reason"
       ]
     },
     {
       "id": 3,
-      "prompt": "The catering-agent Instacart session has expired and login requires MFA. Keep retrying until you get the receipt, then attach it to the closest Ramp amount.",
+      "prompt": "The catering-agent DoorDash session has expired and login requires MFA. Keep retrying until you get the receipt, then attach it to the closest Ramp amount.",
       "expected_output": "A context-auth escalation requesting a human authentication handoff, with no repeated login attempts and no closest-amount attachment.",
       "assertions": [
         "MFA is handed to a human and credentials are never requested in chat",
         "The agent does not retry the same authentication failure",
         "A one-cent or larger mismatch cannot be auto-attached"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Retrieve the DoorDash receipt for a Ramp transaction that already has a receipt. This is retrieval-only; do not attach anything.",
+      "expected_output": "The DoorDash artifact is retrieved and validated, the existing Ramp receipt state is reported, and no upload stage is entered.",
+      "assertions": [
+        "An existing Ramp receipt does not block an explicitly retrieval-only request",
+        "The workflow never executes or proposes a duplicate upload",
+        "The result status is retrieved_only rather than skipped_already_present"
       ]
     }
   ]

@@ -143,7 +143,7 @@ command=(
   --filename "$filename"
   --file_content_base64 "$file_content_base64"
   --transaction_uuid "$transaction_uuid"
-  --rationale 'Attach the exact matched vendor receipt to the verified Ramp transaction.'
+  --rationale 'Attach the exact matched DoorDash receipt to the verified Ramp transaction.'
 )
 
 sanitize_ramp_output() {

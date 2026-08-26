@@ -1,16 +1,16 @@
 ---
 name: fetch-event-receipts
-description: "Retrieve event/catering receipts from DoorDash, ezCater, or Instacart through a headless Browserbase session using the named persistent context `catering-agent`, match each receipt to a Ramp card transaction by vendor, date, currency, and exact amount, and optionally attach it with the Ramp CLI. Use for event-receipt retrieval, missing-receipt cleanup, or the Ramp Agent Identity + Browserbase Contexts demo. Do not use for ordering food, reimbursements, or non-card invoices."
+description: "Retrieve event/catering receipts from DoorDash through a headless Browserbase session using the named persistent context `catering-agent`, match each receipt to a Ramp card transaction by merchant, date, currency, and exact amount, and optionally attach it with the Ramp CLI. Use for DoorDash event-receipt retrieval, missing-receipt cleanup, or the Ramp Agent Identity + Browserbase Contexts demo. Do not use for ordering food, reimbursements, other merchants, or non-card invoices."
 license: MIT
-compatibility: "Requires browse CLI 0.9.5+, Ramp CLI 0.2.24+, jq, unzip, ripgrep (rg), file, and authenticated Browserbase and Ramp accounts."
+compatibility: "Requires browse CLI 0.9.5+, Ramp CLI 0.2.24+, jq, unzip, ripgrep (rg), file, an approved artifact inspector (pdftotext for PDFs or tesseract for images), and authenticated Browserbase and Ramp accounts."
 allowed-tools: Bash Read Grep
 ---
 
 # Fetch event receipts
 
-Use Browserbase for the authenticated vendor portal and the Ramp CLI for the
+Use Browserbase for the authenticated DoorDash portal and the Ramp CLI for the
 permissioned, audited receipt attachment. The persistent Browserbase context is
-named `catering-agent` and contains the vendor login state; Ramp authentication
+named `catering-agent` and contains the DoorDash login state; Ramp authentication
 is separate client-credential OAuth state owned by the Ramp CLI.
 
 ## Safety invariants
@@ -21,32 +21,33 @@ is separate client-credential OAuth state owned by the Ramp CLI.
 - Never type, print, copy, or return passwords, one-time codes, cookies, OAuth
   tokens, CDP connection URLs, receipt base64, or auth headers.
 - Use one Browserbase session at a time with `catering-agent`. Concurrent sessions
-  can race while persisting the same context or trigger vendor security controls.
+  can race while persisting the same context or trigger DoorDash security controls.
 - Enforce that rule with the atomic local lock below.
 - Prefer an explicit transaction UUID. Under the dedicated standalone receipt
   identity, an attribute search may use `all_transactions_across_entire_business`
   only after the user has asked for company event-receipt work; keep it narrowed
-  to the exact vendor and date. Under a user-delegated identity, default to
+  to DoorDash and the exact date. Under a user-delegated identity, default to
   `my_transactions` unless the user explicitly broadens scope.
-- A write requires one unambiguous match on all four keys: supported vendor,
+- A write requires one unambiguous match on all four keys: DoorDash merchant,
   calendar date, currency, and exact final amount in integer minor units (for
   USD, cents). Never compare money with floating-point arithmetic.
 - Do not attach when the order date differs, the final amount differs by even
   one cent, multiple orders match, the receipt is provisional, or the Ramp
-  transaction already has a receipt. Report the candidate(s) and stop.
+  transaction already has a receipt. Report the candidate(s) and stop. For a
+  retrieval-only request, an existing Ramp receipt does not block retrieving the
+  DoorDash artifact; report the existing state and do not enter the upload stage.
 - An explicit single-transaction request to "upload" or "attach" authorizes the
   final Ramp write after the dry run passes. For a sweep or batch, always show
   the proposed transaction-to-receipt table and get confirmation before any
   uploads.
 - Authentication failure, SSO, CAPTCHA, multifactor authentication, or an
-  expired vendor session is a human handoff. Do not guess credentials or keep
+  expired DoorDash session is a human handoff. Do not guess credentials or keep
   retrying the same failing action.
 
 ## Inputs
 
 Prefer a Ramp transaction UUID. Otherwise collect only the missing fields:
 
-- vendor: `doordash`, `ezcater`, or `instacart`
 - transaction date (`YYYY-MM-DD`)
 - exact final amount and currency
 - transaction scope (`all_transactions_across_entire_business` for the dedicated
@@ -58,11 +59,33 @@ Prefer a Ramp transaction UUID. Otherwise collect only the missing fields:
 For multiple transactions, process each one independently and return one result
 record per transaction.
 
+## Progress output
+
+Narrate a demo run with short, sanitized stage updates so the user can follow it
+without exposing credentials, private URLs, receipt contents, or customer/order
+details. Print each update when the stage starts, then replace the final clause
+with the observed outcome:
+
+```text
+[1/6] Ramp preflight — authenticating the isolated Catering Receipt Agent.
+[2/6] Ramp target — resolving and verifying one exact DoorDash transaction.
+[3/6] Browserbase context — opening DoorDash with catering-agent.
+[4/6] DoorDash match — checking completed orders for an exact receipt match.
+[5/6] Receipt artifact — downloading or capturing and validating the final receipt.
+[6/6] Ramp verification — attaching when authorized, rechecking state, and cleaning up.
+```
+
+For retrieval-only, say that stage 6 is verification and cleanup with no write.
+For an escalation, print `Stopped at <stage>: <sanitized reason>` and continue to
+the cleanup rules. Do not claim a stage passed until its observable check passes.
+
 ## Preflight
 
 Run help for unfamiliar flags because both CLIs evolve:
 
 ```bash
+BROWSE_DISABLE_UPDATE_CHECK=1
+export BROWSE_DISABLE_UPDATE_CHECK
 command -v browse
 command -v ramp
 browse --version
@@ -71,6 +94,10 @@ ramp auth login --help
 ramp agent list --help
 browse cloud contexts get catering-agent
 ```
+
+The run-scoped environment variable suppresses Browse's optional upgrade notice
+so it cannot interrupt the six sanitized demo stages. It does not disable
+browser, session, or download behavior.
 
 If Browserbase credentials are absent, use the operator's approved secret store
 without printing values. Load only the required Browserbase variables into the
@@ -104,7 +131,7 @@ the CLI instead of guessing a different identifier field:
 ```bash
 get_payload="$(jq -cn \
   --arg id "$transaction_uuid" \
-  --arg rationale 'Verify the target transaction before matching a vendor receipt.' \
+  --arg rationale 'Verify the target transaction before matching a DoorDash receipt.' \
   '{id: $id, rationale: $rationale}')"
 XDG_CONFIG_HOME="$ramp_agent_config_home" \
 ramp --env production --agent transactions get --json "$get_payload"
@@ -125,52 +152,138 @@ When searching by attributes, narrow to the exact date and platform merchant:
 ```bash
 XDG_CONFIG_HOME="$ramp_agent_config_home" \
 ramp --env production --agent transactions list \
-  --rationale "Find the cleared vendor transaction that needs its exact receipt." \
+  --rationale "Find the cleared DoorDash transaction that needs its exact receipt." \
   --transactions_to_retrieve all_transactions_across_entire_business \
   --from_date "$transaction_date" \
   --to_date "$transaction_date" \
   --state cleared \
   --page_size 50 \
-  --reason_memo_merchant_or_user_name_text_search "$vendor_search"
+  --reason_memo_merchant_or_user_name_text_search "DOORDASH"
 ```
 
-Follow `next_page_cursor` until exhausted. Normalize vendor spelling only for
-candidate discovery (`DOORDASH*...`, `EZCATER`, `INSTACART*...`); do not weaken
-date/currency/amount matching. If the exact-date search is empty, a nearby
-posting may be investigated for diagnosis, but it is an escalation rather than
-an auto-attach candidate.
+The live list response may use uppercase state values, display-formatted money,
+and a nested page wrapper. Treat those fields as discovery data only. Read
+`next_page_cursor` from the observed response wrapper and pass it back with
+`--next_page_cursor` until no cursor remains. Normalize DoorDash spelling only
+for candidate discovery (`DOORDASH*...`); do not weaken date/currency/amount
+matching. If the exact-date search is empty, a nearby posting may be
+investigated for diagnosis, but it is an escalation rather than an auto-attach
+candidate.
 
-For every list candidate, call `transactions get` before opening a vendor
-portal. Use the list result's `transaction_time` as the purchase date—not
+For every list candidate, call `transactions get` before opening DoorDash. Use
+the list result's `transaction_time` as the purchase date—not
 `cleared_at` or `settlement_date`—and use the detail result's `amount_decimal`
 and `currency` as the authoritative money fields.
 
 For this first demo, support USD only. Validate decimal strings with
 `^[0-9]+(\.[0-9]{1,2})?$`, split at the decimal point, right-pad the fraction to
 two digits, and compute `dollars * 100 + cents` with integer arithmetic. A bare
-`$` on the vendor page is not independent proof of USD. Compare the Ramp
-`transaction_time` calendar date in the catering location's timezone with the
-vendor's charged/placed order date; do not substitute a scheduled delivery date.
-If the timezone or charged date cannot be established, escalate rather than
-converting across midnight by assumption.
+`$` alone is ambiguous. For the US-only demo, accept it as USD only when the
+authoritative Ramp detail says `USD`, the order is on the US `doordash.com`
+surface, and the order location is privately verified as US. Return only that
+boolean; never print or retain the address used for the check. Otherwise stop
+with `currency_unverified`. Compare the Ramp `transaction_time` calendar date
+in that verified order location's timezone with the DoorDash charged/placed
+order date; do not substitute a scheduled delivery date or convert across
+midnight by assumption.
 
 ## 2. Create the authenticated Browserbase session
 
-Acquire an atomic local lock before creating a session. If the lock exists, stop
-with `context_busy`; never remove it until a read-only Browserbase session check
-proves no run is active. A stale lock is safer than overlapping context writes.
-Then use a unique working directory and named local driver session. The Browse
-CLI may print an update banner before JSON, so validate the stripped object
-before reading either private field:
+Acquire an atomic local lock before creating a session. If another known run
+owns it, wait at most ten 30-second intervals while reporting `context_busy`;
+never delete or steal it. If ownership is unknown after that window, stop for
+stale-lock review. A stale lock is safer than overlapping context writes. Then
+use a unique working directory and named local driver session. The Browse CLI
+may print an update banner before JSON, so validate the stripped object before
+reading either private field. Keep that object in memory rather than writing a
+CDP URL to disk:
 
 ```bash
 context_lock_dir="${TMPDIR:-/tmp}/fetch-event-receipts-catering-agent.lock"
-if ! mkdir "$context_lock_dir" 2>/dev/null; then
-  printf '%s\n' 'Escalation: catering-agent is already in use or needs stale-lock review.' >&2
+lock_acquired=false
+for attempt in {1..10}; do
+  if mkdir "$context_lock_dir" 2>/dev/null; then
+    lock_acquired=true
+    break
+  fi
+  printf '[3/6] Browserbase context — busy; waiting (%d/10).\n' "$attempt" >&2
+  sleep 30
+done
+if [[ "$lock_acquired" != true ]]; then
+  printf '%s\n' 'Escalation: catering-agent is busy or needs stale-lock review.' >&2
   exit 1
 fi
 
+session_creation_attempted=false
+browserbase_session_id=''
+driver_session=''
+cleanup_complete=false
+
+release_browserbase_session() {
+  [[ "$cleanup_complete" == true ]] && return 0
+
+  if [[ -z "$browserbase_session_id" ]]; then
+    if [[ "$session_creation_attempted" == false ]]; then
+      if rmdir "$context_lock_dir"; then
+        cleanup_complete=true
+        return 0
+      fi
+      printf '%s\n' 'lock_cleanup_unconfirmed' >&2
+      return 1
+    fi
+    printf '%s\n' 'session_cleanup_unconfirmed' >&2
+    return 1
+  fi
+
+  [[ -n "$driver_session" ]] \
+    && browse stop --session "$driver_session" >/dev/null 2>&1 || true
+  browse cloud sessions update "$browserbase_session_id" \
+    --status REQUEST_RELEASE >/dev/null 2>&1 || true
+
+  for attempt in {1..30}; do
+    session_status="$(
+      browse cloud sessions get "$browserbase_session_id" 2>/dev/null \
+        | sed -n '/^{/,$p' \
+        | jq -r '.status // empty'
+    )"
+    case "$session_status" in
+      COMPLETED)
+        if rmdir "$context_lock_dir"; then
+          cleanup_complete=true
+          return 0
+        fi
+        printf '%s\n' 'lock_cleanup_unconfirmed' >&2
+        return 1
+        ;;
+      RUNNING|REQUEST_RELEASE|RELEASING)
+        sleep 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  printf '%s\n' 'session_cleanup_unconfirmed' >&2
+  return 1
+}
+
+cleanup_on_exit() {
+  run_status=$?
+  trap - EXIT INT TERM
+  if ! release_browserbase_session && ((run_status == 0)); then
+    run_status=1
+  fi
+  unset connect_url session_json session_output
+  exit "$run_status"
+}
+trap cleanup_on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 receipt_workdir="$(mktemp -d "${TMPDIR:-/tmp}/fetch-event-receipt.XXXXXX")"
+chmod 700 "$receipt_workdir"
+session_creation_attempted=true
 if ! session_output="$(browse cloud sessions create \
   --context-id catering-agent \
   --persist \
@@ -180,20 +293,20 @@ if ! session_output="$(browse cloud sessions create \
   printf '%s\n' 'Escalation: Browserbase session creation failed.' >&2
   exit 1
 fi
-printf '%s\n' "$session_output" | sed -n '/^{/,$p' > "$receipt_workdir/session.json"
+session_json="$(printf '%s\n' "$session_output" | sed -n '/^{/,$p')"
 jq -e '
   (.id | type == "string" and test("^[0-9a-fA-F-]{36}$")) and
   (.connectUrl | type == "string" and test("^wss?://"))
-' "$receipt_workdir/session.json" >/dev/null || {
+' <<<"$session_json" >/dev/null || {
   printf '%s\n' 'Escalation: Browserbase returned an invalid private session payload.' >&2
   exit 1
 }
 
-browserbase_session_id="$(jq -r '.id' "$receipt_workdir/session.json")"
-connect_url="$(jq -r '.connectUrl' "$receipt_workdir/session.json")"
+browserbase_session_id="$(jq -r '.id' <<<"$session_json")"
+connect_url="$(jq -r '.connectUrl' <<<"$session_json")"
 driver_session="event-receipt-${browserbase_session_id%%-*}"
 
-browse open "$vendor_url" --cdp "$connect_url" --session "$driver_session"
+browse open "https://www.doordash.com" --cdp "$connect_url" --session "$driver_session"
 browse wait load --session "$driver_session"
 ```
 
@@ -204,120 +317,33 @@ pages contain account data. For an approved demo recording, replace only
 `--no-record-session` with `--record-session`, then review and redact the replay
 before sharing it.
 
-## 3. Find and validate the vendor order
+## 3. Find and validate the DoorDash order
 
-Read only the reference for the selected vendor before navigating it:
-
-- DoorDash: [references/doordash.md](references/doordash.md)
-- ezCater: [references/ezcater.md](references/ezcater.md)
-- Instacart: [references/instacart.md](references/instacart.md)
-
-Do not load the other vendor references unless the request includes those
-vendors too.
-
-Use the normal Browse loop:
-
-```bash
-browse snapshot --session "$driver_session"
-browse click @<current-ref> --session "$driver_session"
-browse snapshot --session "$driver_session"
-```
-
-Snapshot refs expire after navigation or a re-render; take a fresh snapshot
-before every subsequent interaction. Inspect the order-detail page and retain:
-
-- vendor/platform
-- order ID (for private run evidence only)
-- order date
-- currency
-- final charged total, including final tips/adjustments
-- receipt status (final, not estimate/pending)
-
-Convert both vendor and Ramp totals to integer minor units and compare all four
-match keys. If exactly one order matches, retrieve its receipt artifact. If no
-order or more than one order matches, stop and report the ambiguity.
+Read [references/doordash.md](references/doordash.md) before navigating.
+That reference owns privacy-safe inspection, exact order-card selection, final
+receipt validation, the bounded download attempt, and the receipt-panel
+screenshot fallback. Do not replace its filtered inspection commands with a
+full-page snapshot: an unfiltered DoorDash accessibility tree contains private
+account, address, payment, and line-item data.
 
 ## 4. Retrieve the receipt artifact
 
-Choose one artifact path while the browser is still attached.
-
-For a Download Receipt/PDF control, initiate the download and poll the session
-archive until it is a valid ZIP containing a supported file. Do not tear down
-the driver on a fixed timer:
-
-```bash
-download_ready=false
-for attempt in {1..30}; do
-  if browse cloud sessions downloads get "$browserbase_session_id" \
-      --output "$receipt_workdir/downloads.zip" >/dev/null 2>&1 \
-    && unzip -tq "$receipt_workdir/downloads.zip" >/dev/null 2>&1 \
-    && unzip -Z1 "$receipt_workdir/downloads.zip" \
-      | rg -qi '\.(pdf|png|jpe?g|heic|webp)$'; then
-    download_ready=true
-    break
-  fi
-  browse wait timeout 1000 --session "$driver_session"
-done
-[[ "$download_ready" == true ]] || {
-  printf '%s\n' 'Escalation: receipt download did not complete.' >&2
-  exit 1
-}
-unzip -q "$receipt_workdir/downloads.zip" -d "$receipt_workdir/downloads"
-```
-
-If the portal has no receipt-download control but displays the complete final
-receipt, capture it before stopping the driver. This is the normal Instacart
-personal-account fallback, not a step that runs after download failure:
-
-```bash
-browse screenshot --full-page \
-  --path "$receipt_workdir/receipt.png" \
-  --session "$driver_session"
-```
-
-If a download control fails but the complete final receipt remains rendered,
-switch to the screenshot path only after revalidating that the page includes all
-required receipt fields. Otherwise escalate. Do not upload an order-summary
-screenshot that omits the final charged total.
+The DoorDash reference returns exactly one private `receipt_path` while the
+browser is still attached. Never substitute a full-page screenshot: it leaks
+unrelated account data and the observed image exceeded the current Ramp CLI
+argument ceiling after base64 expansion.
 
 Select exactly one supported receipt file (`pdf`, `png`, `jpg`, `jpeg`, `heic`,
 or `webp`) and inspect its MIME type and size. Render or extract the artifact and
-re-confirm vendor, charged/placed date, independently established currency,
-final charged amount, and final status from the artifact itself. Page matching
+re-confirm DoorDash, charged/placed date, final charged amount, final status,
+and currency consistency with the privately verified US order. Page matching
 alone is insufficient because a generic or stale download may be returned.
 
 Only after the artifact passes validation, release the local driver and remote
-session:
+session through the registered cleanup path:
 
 ```bash
-browse stop --session "$driver_session"
-browse cloud sessions update "$browserbase_session_id" --status REQUEST_RELEASE
-```
-
-Poll the remote session and release the local lock only after completion:
-
-```bash
-session_completed=false
-for attempt in {1..30}; do
-  session_status="$(
-    browse cloud sessions get "$browserbase_session_id" 2>/dev/null \
-      | sed -n '/^{/,$p' \
-      | jq -er '.status'
-  )" || break
-  case "$session_status" in
-    COMPLETED)
-      session_completed=true
-      break
-      ;;
-    RUNNING|REQUEST_RELEASE|RELEASING)
-      sleep 2
-      ;;
-    *)
-      break
-      ;;
-  esac
-done
-[[ "$session_completed" == true ]] && rmdir "$context_lock_dir"
+release_browserbase_session || exit 1
 ```
 
 On `ERROR`, `TIMED_OUT`, an unknown state, or a polling timeout, keep the lock
@@ -370,8 +396,8 @@ Return a compact private-run record for each target:
 ```json
 {
   "status": "attached | retrieved_only | escalated | skipped_already_present",
-  "vendor": "doordash | ezcater | instacart",
-  "stage": "ramp_preflight | context_auth | vendor_match | download | upload_verify | complete",
+  "vendor": "doordash",
+  "stage": "ramp_preflight | context_auth | doordash_match | download | upload_verify | complete",
   "code": null,
   "transaction_uuid": null,
   "browserbase_session_id": null,
@@ -379,18 +405,36 @@ Return a compact private-run record for each target:
   "currency": null,
   "amount_minor": null,
   "receipt_filename": null,
-  "reason": null
+  "reason": null,
+  "redacted_fields": []
 }
 ```
 
 Populate known values as soon as they are resolved; `amount_minor` is an integer,
 not a string. Keep unresolved fields `null`, and require `code` plus `reason` for
-an escalated result.
+an escalated result. The DoorDash reference returns a precise private diagnostic
+code from its hard-stop table. Normalize that detail to one of these stable
+top-level result codes, and keep the precise code only in private diagnostic
+logs:
+
+```text
+ramp_auth_failed | ramp_target_not_found | transaction_already_has_receipt
+context_busy | context_auth_handoff | doordash_surface_not_ready
+order_not_found | ambiguous_order_match
+currency_unverified | receipt_not_final | split_total_ambiguous
+download_unavailable | artifact_invalid | receipt_artifact_transport_unsafe
+upload_not_authorized | upload_failed | cleanup_unconfirmed
+```
+
+The object above is the authorized private-run record. For a public or shared
+summary, replace known private values with type-compatible `null` values and add
+their field names to `redacted_fields`; never disguise a redaction as an
+unresolved value without declaring it.
 
 Never include the context ID, connection URL, credentials, base64, auth state,
 or unnecessary order/customer details. After selecting one authorized receipt,
-unset the CDP URL, truncate `session.json`, and remove the known ZIP plus any
-unselected extracted duplicates. Keep the selected receipt only as long as the
+unset the in-memory CDP payload and remove the known ZIP plus any unselected
+extracted duplicates. Keep the selected receipt mode `0600` only as long as the
 user needs it; do not delete that receipt without authorization.
 
 On every success or escalation path, stop the named Browse driver session if it

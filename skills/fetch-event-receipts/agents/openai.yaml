@@ -1,4 +1,4 @@
 interface:
   display_name: "Fetch Event Receipts"
-  short_description: "Match vendor receipts to Ramp transactions"
-  default_prompt: "Use $fetch-event-receipts to retrieve and match an event receipt, then attach it to the verified Ramp transaction."
+  short_description: "Match DoorDash receipts to Ramp transactions"
+  default_prompt: "Use $fetch-event-receipts to retrieve and match a DoorDash receipt, then attach it to the verified Ramp transaction."

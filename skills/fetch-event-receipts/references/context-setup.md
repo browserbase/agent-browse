@@ -34,21 +34,20 @@ mkdir "$context_lock_dir" 2>/dev/null || {
   printf '%s\n' 'catering-agent is already in use or needs stale-lock review' >&2
   exit 1
 }
-setup_workdir="$(mktemp -d "${TMPDIR:-/tmp}/catering-context.XXXXXX")"
 setup_output="$(browse cloud sessions create \
   --context-id catering-agent \
   --persist \
   --timeout 900 \
   --no-record-session \
   --no-log-session 2>&1)" || exit 1
-printf '%s\n' "$setup_output" | sed -n '/^{/,$p' > "$setup_workdir/session.json"
+setup_json="$(printf '%s\n' "$setup_output" | sed -n '/^{/,$p')"
 jq -e '
   (.id | type == "string" and test("^[0-9a-fA-F-]{36}$")) and
   (.connectUrl | type == "string" and test("^wss?://"))
-' "$setup_workdir/session.json" >/dev/null || exit 1
+' <<<"$setup_json" >/dev/null || exit 1
 
-setup_session_id="$(jq -r '.id' "$setup_workdir/session.json")"
-setup_connect_url="$(jq -r '.connectUrl' "$setup_workdir/session.json")"
+setup_session_id="$(jq -r '.id' <<<"$setup_json")"
+setup_connect_url="$(jq -r '.connectUrl' <<<"$setup_json")"
 
 browse open https://www.doordash.com \
   --cdp "$setup_connect_url" \
@@ -60,12 +59,11 @@ URL and open it only after confirming it begins with `https://`. The user, not
 the agent, completes passwords, SSO, CAPTCHA, and multifactor authentication in
 that live view.
 
-After DoorDash succeeds, reuse the same driver session and open ezCater and
-Instacart sequentially. Verify each site by navigating to its order/receipt page
-and confirming authenticated account content is visible. Do not record account
-names, addresses, or order details as setup evidence.
+Verify DoorDash by navigating to its order/receipt page and confirming
+authenticated account content is visible. Do not record account names,
+addresses, or order details as setup evidence.
 
-When all three logins are verified:
+When the DoorDash login is verified:
 
 ```bash
 browse stop --session catering-context-setup
@@ -77,15 +75,16 @@ is `COMPLETED`. Only that terminal state proves the remote session released and
 context persistence finished. Disable recordings during login setup so a replay
 cannot capture credentials or one-time authentication screens. Release the lock
 with `rmdir "$context_lock_dir"` only after that confirmation; otherwise keep it
-for stale-lock review.
+for stale-lock review. Unset `setup_connect_url`, `setup_json`, and
+`setup_output` immediately afterward.
 
 ## Option B: seed from local Chrome with `$cookie-sync`
 
-Use `$cookie-sync` when the user is already logged into the three sites in a
-debuggable local Chrome. Sync only these domains:
+Use `$cookie-sync` when the user is already logged into DoorDash in a debuggable
+local Chrome. Sync only this domain:
 
 ```text
-doordash.com,ezcater.com,instacart.com
+doordash.com
 ```
 
 For a new sync, save the returned Browserbase context UUID under the requested
@@ -101,11 +100,9 @@ logs or artifacts.
 
 ## Operating rule for the shared context
 
-Browserbase generally recommends one context per site/login. This demo
-intentionally uses one multi-site context so a single receipt agent can visit
-all three portals. Keep sessions sequential, use a consistent proxy geography
-if one is introduced, and expect individual vendors to expire their own login
-state even though the Browserbase context itself persists.
+Keep sessions sequential, use a consistent proxy geography if one is
+introduced, and expect DoorDash to expire its login state even though the
+Browserbase context itself persists.
 
 Skill runs enforce an atomic local lock so only one session can use the shared
 context at a time.
