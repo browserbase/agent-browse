@@ -22,8 +22,7 @@ is separate client-credential OAuth state owned by the Ramp CLI.
   tokens, CDP connection URLs, receipt base64, or auth headers.
 - Use one Browserbase session at a time with `catering-agent`. Concurrent sessions
   can race while persisting the same context or trigger vendor security controls.
-- Enforce that rule with the atomic local lock below. A deployed Function must
-  use an external single-flight queue because a local lock cannot span hosts.
+- Enforce that rule with the atomic local lock below.
 - Prefer an explicit transaction UUID. Under the dedicated standalone receipt
   identity, an attribute search may use `all_transactions_across_entire_business`
   only after the user has asked for company event-receipt work; keep it narrowed
@@ -207,8 +206,14 @@ before sharing it.
 
 ## 3. Find and validate the vendor order
 
-Read [references/vendor-routes.md](references/vendor-routes.md) for each selected
-portal before navigating it.
+Read only the reference for the selected vendor before navigating it:
+
+- DoorDash: [references/doordash.md](references/doordash.md)
+- ezCater: [references/ezcater.md](references/ezcater.md)
+- Instacart: [references/instacart.md](references/instacart.md)
+
+Do not load the other vendor references unless the request includes those
+vendors too.
 
 Use the normal Browse loop:
 
@@ -391,11 +396,3 @@ user needs it; do not delete that receipt without authorization.
 On every success or escalation path, stop the named Browse driver session if it
 is still active and request remote release. Preserve the Browserbase session ID
 for diagnosis; release the lock only after confirmed remote completion.
-
-## Deployment mode
-
-When the user asks to deploy this as a Browserbase Function, read
-[references/function-deployment.md](references/function-deployment.md). Keep the
-browser retrieval inside the Function and the Ramp CLI call in the invoking
-orchestrator until secure Ramp authentication and CLI availability inside the
-Function runtime are empirically verified.

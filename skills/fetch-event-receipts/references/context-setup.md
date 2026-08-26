@@ -6,8 +6,7 @@ Read this only when the named context is missing, stale, or logged out.
 
 The Browse CLI name `catering-agent` is a local alias for an opaque Browserbase
 context UUID. The alias is stored on the machine running the CLI; it is not a
-server-side display name and is not automatically available inside a deployed
-Function.
+server-side display name.
 
 Current Browse CLI releases support naming directly:
 
@@ -108,9 +107,8 @@ all three portals. Keep sessions sequential, use a consistent proxy geography
 if one is introduced, and expect individual vendors to expire their own login
 state even though the Browserbase context itself persists.
 
-Normal skill runs enforce an atomic local lock. Deployed Functions run on other
-hosts, so they require an external single-flight queue; a local filesystem lock
-is not sufficient across invocations.
+Skill runs enforce an atomic local lock so only one session can use the shared
+context at a time.
 
 Ramp is not stored in this context. Follow
 [ramp-identity-setup.md](ramp-identity-setup.md) separately and keep the
