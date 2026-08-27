@@ -31,7 +31,7 @@ payment access, or unrelated administrative permissions.
 In **Company > Agents**, create:
 
 ```text
-Agent: Catering Receipt Agent
+Agent: <admin-approved receipt-agent display name>
 Job: Match final DoorDash catering receipts to exact card transactions and attach them.
 Role: Receipt Cleanup Agent Role
 Boundary: Cannot spend, approve, pay, edit policy, or operate outside confirmed receipt cleanup.
@@ -65,13 +65,14 @@ receipt helper must complete its no-write `--dry_run` and show the expected
 `/developer/v1/agent-tools/upload-receipt-file` endpoint, intended transaction
 UUID, MIME type, and redacted base64 field.
 
-Before login, an admin must open **Company > Agents > Catering Receipt Agent**
-and confirm its active status, accountable owner, `Receipt Cleanup Agent Role`,
-and non-secret Client ID against the approved provisioning record. A standalone
-credential cannot assume it may list the business's agents; treat `ramp agent
-list` as optional rather than an identity-proof prerequisite. Directory naming
-and scopes are not identity proof. Do not use the admin's human session for the
-receipt run.
+Before login, an admin must open **Company > Agents**, select the intended
+receipt agent, and confirm its display name, active status, accountable owner,
+`Receipt Cleanup Agent Role`, and non-secret Client ID against the approved
+provisioning record. Preserve that verified display name as the expected actor
+for the run. A standalone credential cannot assume it may list the business's
+agents; treat `ramp agent list` as optional rather than an identity-proof
+prerequisite. Directory naming and scopes are not identity proof. Do not use the
+admin's human session for the receipt run.
 
 For a recorded demo, capture this setup surface separately if it contains no
 unapproved private data. It proves the identity and permissions, not that the
@@ -84,6 +85,10 @@ Every command for the standalone identity uses its own config directory:
 ```bash
 ramp_agent_config_home="$HOME/.config/ramp-agents/catering-receipt-agent"
 ```
+
+That directory is a stable local alias, not the Ramp activity display name.
+After a demo upload, the attributed Ramp activity actor must match the
+admin-verified agent (Ramp may render it as `<display name> (Agent)`).
 
 Open a private local terminal prompt where the user can enter the Client secret
 without echo. The authentication call is:

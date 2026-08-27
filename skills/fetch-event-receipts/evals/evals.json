@@ -8,7 +8,8 @@
       "assertions": [
         "The browser session loads the named catering-agent context and never exposes its CDP URL or cookies",
         "The match requires DoorDash merchant, charged date, US/USD-consistent order context, and 18427 integer minor units",
-        "The workflow rechecks Ramp missing-receipt state before and after the upload",
+        "The workflow treats Ramp missing_receipt as a policy-compliance signal rather than proof of attachment state",
+        "The execute response must contain a UUID receipt_uuid and attached_to_transaction true",
         "The result records both required UUIDs without credentials or receipt base64"
       ]
     },
@@ -40,6 +41,72 @@
         "An existing Ramp receipt does not block an explicitly retrieval-only request",
         "The workflow never executes or proposes a duplicate upload",
         "The result status is retrieved_only rather than skipped_already_present"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Attach a final DoorDash receipt to an optional-receipt Ramp transaction. Ramp reports missing_receipt false, but a just-in-time authorized UI check confirms that the receipt pane is empty.",
+      "expected_output": "The workflow treats the false missing_receipt value as ambiguous policy state, uses the explicit empty-pane confirmation as pre-write attachment evidence, performs the dry run and authorized upload, and verifies the upload response itself.",
+      "assertions": [
+        "The workflow does not claim that missing_receipt false means a receipt is already attached",
+        "The workflow records the just-in-time empty-pane confirmation as its pre-write duplicate guard",
+        "Post-write success requires a UUID receipt_uuid and attached_to_transaction true",
+        "The result distinguishes policy state from attachment evidence"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "Run an approved live demo of DoorDash receipt retrieval with a local Browserbase viewer and sanitized progress updates.",
+      "expected_output": "With explicit approval for a demo-safe account and local audience, a loopback-only branded viewer shows the current Browserbase session while the agent narrates each command in chat. Signed URLs and credentials never enter logs or the outer UI; the live merchant page remains intentionally visible only inside the local iframe.",
+      "assertions": [
+        "The viewer resolves debuggerFullscreenUrl server-side and never logs or persists it",
+        "The agent narrates each Ramp, Browserbase, DoorDash, PDF, upload, and cleanup command as it runs",
+        "The viewer binds to 127.0.0.1, uses no-store and no-referrer protections, and has no mutating HTTP endpoint",
+        "The iframe is sandboxed and non-interactive, and the cropped remote address bar never displays the signed debugger URL",
+        "The workflow states that cropping the address bar does not redact live page content and requires a separately approved demo-safe account and audience"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "The target date is 2026-08-01. The visible DoorDash page contains one order dated 2026-08-18 and another dated 2025-08-01, both for the exact target amount. Attach the matching receipt.",
+      "expected_output": "The workflow rejects both candidates and stops without an upload because neither candidate contains the exact target calendar date including the year.",
+      "assertions": [
+        "Yearless 8/1 is never accepted as evidence for the target date",
+        "A date token for August 1 cannot match August 18 through substring matching",
+        "The same month and day in a different year cannot match",
+        "No receipt upload occurs without one exact four-key match"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "Attach the final DoorDash receipt for a USD Ramp transaction whose exact amount is $1,234.56. The DoorDash order card and receipt render the total with a comma.",
+      "expected_output": "The workflow parses the comma-grouped amount as 123456 integer cents, matches it exactly on the order card and receipt Total row, and never relies on an ungrouped text substring.",
+      "assertions": [
+        "Comma-grouped totals are compared numerically in integer minor units",
+        "The exact amount can pass both page and printed-PDF validation",
+        "No floating-point comparison or ungrouped amount substring is used"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "One DoorDash card matches the exact target date and amount, while another card has the same amount but its date is absent or uses an unsupported rendering. Attach the matching receipt.",
+      "expected_output": "The workflow stops with an ambiguous-order escalation because the undated same-total card could represent another match.",
+      "assertions": [
+        "An undated or unparseable same-total card is not ignored when an exact dated card exists",
+        "No card is clicked or uploaded while this ambiguity remains",
+        "A clearly supported different year-bearing date does not masquerade as an unknown date"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "Use fetch-event-receipts for DoorDash on 8/18, the ~$50 order.",
+      "expected_output": "The agent starts discovery without asking for a year or exact cents: it normalizes 8/18 to the current calendar year, searches the fixed 4500–5500-cent Ramp window, and proceeds only if one cleared DoorDash candidate supplies the exact amount.",
+      "assertions": [
+        "A yearless month/day is normalized to the current calendar year for bounded Ramp discovery",
+        "Approximate $50 wording uses exactly a plus-or-minus 500-cent window and is never widened silently",
+        "Exactly one Ramp candidate is required; the agent does not choose the closest transaction",
+        "The unique Ramp candidate's exact integer-cent amount replaces the rough hint before DoorDash matching",
+        "The agent asks for clarification only when bounded discovery returns zero or multiple candidates"
       ]
     }
   ]
