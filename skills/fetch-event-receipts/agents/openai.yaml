@@ -1,4 +1,4 @@
 interface:
   display_name: "Fetch Event Receipts"
   short_description: "Match DoorDash receipts to Ramp transactions"
-  default_prompt: "Use $fetch-event-receipts to retrieve and match a DoorDash receipt to a Ramp transaction. Narrate each command as you run it, and do not attach unless I explicitly ask."
+  default_prompt: "Use $fetch-event-receipts to run the deterministic DoorDash-to-Ramp receipt workflow. Relay its five milestone updates, and attach only when I explicitly ask."
