@@ -20,6 +20,7 @@
         "The runner owns Browserbase, PDF printing, Ramp upload, and cleanup",
         "A non-empty receipt_uuids array stops the write",
         "Success requires data[0].attached_to_transaction true and a receipt UUID",
+        "The matched Ramp transaction opens only after successful completion",
         "No schema probing or automatic retry occurs"
       ]
     },
@@ -41,6 +42,7 @@
         "The signed debugger URL stays server-side",
         "One Browserbase session is used for navigation and PDF printing",
         "The agent relays five milestones instead of narrating commands",
+        "The matched Ramp transaction opens after the run succeeds",
         "Cleanup releases only resources created by the runner"
       ]
     }

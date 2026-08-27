@@ -144,4 +144,6 @@ else
   receipt_uuid=""; result_status="retrieved_only"
 fi
 
+open "$ramp_transaction_url" >/dev/null 2>&1 || true
+
 jq -cn --arg status "$result_status" --arg ramp_transaction_url "$ramp_transaction_url" --arg browserbase_session_url "$browserbase_session_url" --arg receipt_pdf "$receipt_pdf" --arg receipt_uuid "$receipt_uuid" '{status:$status,ramp_transaction_url:$ramp_transaction_url,browserbase_session_url:$browserbase_session_url,receipt_pdf:$receipt_pdf} + if $receipt_uuid == "" then {} else {receipt_uuid:$receipt_uuid} end'

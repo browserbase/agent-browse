@@ -53,6 +53,9 @@ report the single sanitized error and do not improvise a workaround.
 
 ## Return
 
+After a successful run, the runner opens the matched Ramp transaction in the
+operator's default browser. It does not open Ramp after a stopped or failed run.
+
 Return the final status plus the clickable `ramp_transaction_url` and
 `browserbase_session_url`. For retrieval-only, also return `receipt_pdf`. Never
 return the Browserbase CDP URL, cookies, credentials, receipt base64, private
