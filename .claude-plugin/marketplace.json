@@ -83,6 +83,21 @@
       "skills": [
         "./skills/webmcp-gen"
       ]
+    },
+    {
+      "name": "add-webmcp",
+      "source": "./",
+      "description": "Analyze an existing web application, add first-party WebMCP tools backed by its routes, forms, actions, and schemas, and validate them with Stagehand v4.",
+      "version": "0.0.1",
+      "author": {
+        "name": "Browserbase"
+      },
+      "category": "automation",
+      "keywords": ["webmcp", "stagehand-v4", "code-analysis", "tool-generation", "agent-ready"],
+      "strict": false,
+      "skills": [
+        "./skills/add-webmcp"
+      ]
     }
   ]
 }

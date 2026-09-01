@@ -16,6 +16,7 @@ This plugin includes the following skills (see `skills/` for details):
 | [optimize-agent-prompt](skills/optimize-agent-prompt/SKILL.md) | Optimize Browserbase Agent API system prompts through repeated runs, Agent message traces, session logs, scoring, and unchanged confirmation runs |
 | [safe-browser](skills/safe-browser/SKILL.md) | Build local Claude Agent SDK browser agents whose only browser capability is a CDP-gated `safe_browser` tool with domain allowlist enforcement |
 | [webmcp-gen](skills/webmcp-gen/SKILL.md) | Author, compile, and validate site-specific WebMCP init scripts with the Stagehand WebMCP runtime |
+| [add-webmcp](skills/add-webmcp/SKILL.md) | Analyze an existing web app, add first-party WebMCP tools backed by its routes, forms, actions, and schemas, and validate them through Stagehand |
 | [cookie-sync](skills/cookie-sync/SKILL.md) | Sync cookies from local Chrome to a Browserbase persistent context so the browse CLI can access authenticated sites |
 | [fetch](skills/fetch/SKILL.md) | Fetch HTML or JSON from static pages without a browser session — inspect status codes, headers, follow redirects |
 | [search](skills/search/SKILL.md) | Search the web and return structured results (titles, URLs, metadata) without a browser session |
