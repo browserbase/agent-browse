@@ -165,6 +165,7 @@ async function run() {
         console.log(`FAIL ${expected.name}: not discovered`);
         continue;
       }
+      const failureCountBeforeValidation = failures.length;
       if (!tool.description?.trim()) failures.push(`${expected.name}: description is empty`);
       if (!tool.inputSchema || typeof tool.inputSchema !== "object" || Array.isArray(tool.inputSchema)) {
         failures.push(`${expected.name}: input schema is missing or not an object`);
@@ -175,7 +176,8 @@ async function run() {
       }
 
       if (!Object.hasOwn(expected, "input")) {
-        console.log(`PASS ${expected.name}: discovered (discovery-only, risk=${expected.risk})`);
+        const status = failures.length === failureCountBeforeValidation ? "PASS" : "FAIL";
+        console.log(`${status} ${expected.name}: discovered (discovery-only, risk=${expected.risk})`);
         continue;
       }
 
@@ -189,9 +191,7 @@ async function run() {
         const mismatch = deepSubset(response.output, expected.expectedOutputSubset, `${expected.name}.output`);
         if (mismatch) failures.push(mismatch);
       }
-      const status = failures.some((failure) => failure.startsWith(`${expected.name}:`) || failure.startsWith(`${expected.name}.`))
-        ? "FAIL"
-        : "PASS";
+      const status = failures.length === failureCountBeforeValidation ? "PASS" : "FAIL";
       console.log(`${status} ${expected.name}: invoked status=${response.status} risk=${expected.risk}`);
       if (expected.expectedOutputSubset) {
         console.log(`  verified output subset: ${JSON.stringify(expected.expectedOutputSubset)}`);

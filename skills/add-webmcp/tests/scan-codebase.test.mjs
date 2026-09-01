@@ -17,5 +17,10 @@ test("scanner inventories framework and WebMCP-relevant surfaces without source 
   assert.ok(result.findings.some((finding) => finding.kind === "network-client"));
   assert.ok(result.findings.some((finding) => finding.kind === "capability-function"));
   assert.ok(result.findings.some((finding) => finding.kind === "webmcp"));
+  assert.ok(
+    result.findings.some(
+      (finding) => finding.kind === "framework-route" && finding.file === path.join("app", "page.tsx"),
+    ),
+  );
   assert.ok(result.findings.every((finding) => !("snippet" in finding)));
 });

@@ -224,7 +224,7 @@ async function detectFrameworks(root, manifests) {
 function pathSignals(relativePath) {
   const normalized = relativePath.split(path.sep).join("/");
   const signals = [];
-  if (/(^|\/)app\/.*\/(?:page|layout|route)\.[cm]?[jt]sx?$/.test(normalized)) signals.push("framework-route");
+  if (/(^|\/)app\/(?:.*\/)?(?:page|layout|route)\.[cm]?[jt]sx?$/.test(normalized)) signals.push("framework-route");
   if (/(^|\/)pages\/(?:api\/)?/.test(normalized)) signals.push("framework-route");
   if (/(^|\/)(?:routes?|router)\//.test(normalized)) signals.push("framework-route");
   if (/(?:schema|validator|validation)\.[cm]?[jt]s$/.test(normalized)) signals.push("schema");

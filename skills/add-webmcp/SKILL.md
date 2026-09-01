@@ -1,6 +1,7 @@
 ---
 name: add-webmcp
 description: Analyze an existing web application, identify safe user-visible capabilities across routes, forms, server actions, handlers, and schemas, then implement first-party WebMCP tools and validate discovery and invocation with Stagehand. Use when the user asks to make a codebase agent-ready, expose website features as WebMCP tools, or add WebMCP directly to an app rather than generating a standalone injection script from a URL.
+compatibility: "Requires Node.js 22.18 or newer. Validation needs Chrome/Chromium locally or BROWSERBASE_API_KEY for a publicly reachable preview."
 license: MIT
 allowed-tools: Bash Read Grep Edit Write
 ---
