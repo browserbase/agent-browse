@@ -89,12 +89,14 @@ Validate localhost with a Stagehand-launched local browser:
 
 ```bash
 node "$ADD_WEBMCP_SKILL_DIR/scripts/validate-stagehand.mjs" \
-  --url http://127.0.0.1:3000 \
+  --url http://localhost:3000 \
   --config "$TARGET_REPO/webmcp.e2e.json" \
   --local
 ```
 
 Local runs are headed by default so the browser is visible while it validates; pass `--headless` for CI or unattended runs.
+
+If discovery reports zero tools, check the host before suspecting the code: dev servers commonly bind `localhost` only, so `--url http://127.0.0.1:PORT` finds nothing while `http://localhost:PORT` works. The failure looks identical to tools never registering.
 
 Use `--browserbase` only for a publicly reachable deployed preview. The validator uses Stagehand v4's real `page.tools()`, `tool.invoke()`, and `invocation.result()` path. It refuses consequential invocations unless `--allow-consequential` is explicitly supplied.
 
@@ -107,7 +109,7 @@ Step 5 proves each tool is discoverable and that its executor ran. It does not p
 Drive the page with a persistent browser session so probes accumulate against real state. The browse CLI is the lightest option — one global install, and the session survives between commands:
 
 ```bash
-browse open http://127.0.0.1:3000 --session probe --local --headed
+browse open http://localhost:3000 --session probe --local --headed
 browse eval --session probe '(async()=>{const mc=document.modelContext;const t=(await mc.getTools()).find(x=>x.name==="my_tool");try{return "ACCEPTED "+JSON.stringify(await mc.executeTool(t,JSON.stringify({/* probe input */})));}catch(e){return "REJECTED";}})()'
 browse screenshot --session probe --path /tmp/effect.png
 ```
