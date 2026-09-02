@@ -10,7 +10,7 @@ const RISKS = new Set(["read-only", "reversible", "consequential"]);
 function usage() {
   return [
     "Usage: validate-stagehand.mjs --url <url> --config <file> (--local | --browserbase)",
-    "       [--init-script <file>] [--executable-path <file>] [--headed] [--no-sandbox]",
+    "       [--init-script <file>] [--executable-path <file>] [--headless] [--no-sandbox]",
     "       [--allow-consequential]",
   ].join("\n");
 }
@@ -18,7 +18,7 @@ function usage() {
 function parseArgs(argv) {
   const args = {
     mode: null,
-    headed: false,
+    headed: null,
     noSandbox: false,
     allowConsequential: false,
   };
@@ -36,6 +36,8 @@ function parseArgs(argv) {
       args.mode = mode;
     } else if (value === "--headed") {
       args.headed = true;
+    } else if (value === "--headless") {
+      args.headed = false;
     } else if (value === "--no-sandbox") {
       args.noSandbox = true;
     } else if (value === "--allow-consequential") {
@@ -45,7 +47,10 @@ function parseArgs(argv) {
     }
   }
   if (!args.url || !args.config || !args.mode) throw new Error(usage());
-  if (args.headed && args.mode !== "local") throw new Error("--headed is only valid with --local");
+  if (args.headed !== null && args.mode !== "local") {
+    throw new Error("--headed and --headless are only valid with --local");
+  }
+  if (args.headed === null) args.headed = true;
   if (args.noSandbox && args.mode !== "local") throw new Error("--no-sandbox is only valid with --local");
   if (args.executablePath && args.mode !== "local") throw new Error("--executable-path is only valid with --local");
   return args;

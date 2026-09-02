@@ -47,6 +47,7 @@ For each selected tool, record its source files, existing validation and authori
 - Return compact JSON-serializable domain results. Do not return DOM nodes, credentials, cookies, tokens, or entire HTML documents.
 - Call the same client/service boundary as the UI so existing validation, authorization, observability, and business rules remain authoritative.
 - Validate again inside the handler. Agent-provided input is untrusted.
+- Never echo the request back as the result. Read the outcome from the application's own state, and where that state is updated asynchronously (React and most reactive stores do not reflect a change on the next line), poll until it settles before reading, then report whatever is actually true. Echoing turns a silent no-op into a passing test.
 
 Assign annotations deliberately:
 
@@ -66,7 +67,9 @@ Use the runtime model context exposed by the browser:
 const modelContext = navigator.modelContext || document.modelContext;
 ```
 
-Register imperative tools from a client-only root/provider after the application is ready. Keep registration lifecycle-safe across navigation and hot reload using the API behavior supported by the target browser. Use declarative form attributes when an existing form already represents the exact task and preserving a visible review step is valuable.
+Keep both accessors: current Chrome exposes `document.modelContext` as a native `ModelContext` while `navigator.modelContext` is `undefined`, so the fallback is load-bearing rather than defensive. The surface is browser-provided and present on any page, so the application ships no polyfill.
+
+Register imperative tools from a client-only root/provider after the application is ready. `registerTool` returns a promise and is idempotent by name — re-registering replaces the previous definition rather than duplicating it, and there is no unregister handle — so remounting and hot reload are safe without teardown. Use declarative form attributes when an existing form already represents the exact task and preserving a visible review step is valuable.
 
 Do not duplicate server business logic in the tool executor. Do not weaken CSRF, same-origin, auth, or confirmation checks to make a smoke test pass. Never embed secrets in browser code.
 
@@ -89,12 +92,44 @@ node "$ADD_WEBMCP_SKILL_DIR/scripts/validate-stagehand.mjs" \
   --local
 ```
 
+Local runs are headed by default so the browser is visible while it validates; pass `--headless` for CI or unattended runs.
+
 Use `--browserbase` only for a publicly reachable deployed preview. The validator uses Stagehand v4's real `page.tools()`, `tool.invoke()`, and `invocation.result()` path. It refuses consequential invocations unless `--allow-consequential` is explicitly supplied.
 
 An injected init script is useful for testing the validator itself, but it is not proof that the target app ships its own tools. Final application proof must run without `--init-script`.
 
-## 6. Report the result
+## 6. Adversarially verify the tools actually worked
 
-List the capabilities considered and explain exclusions. For each implemented tool, report its contract, backing code path, risk/confirmation treatment, and actual Stagehand discovery/invocation result. State any environment or browser support not tested.
+Step 5 proves each tool is discoverable and that its executor ran. It does not prove the tool did what it claimed, and a passing config is not evidence of a sound contract. Run this step last, after step 5 is green, and drive it yourself against the live page rather than encoding it in `webmcp.e2e.json` — the point is to probe inputs the author did not anticipate.
+
+Drive the page with a persistent browser session so probes accumulate against real state. The browse CLI is the lightest option — one global install, and the session survives between commands:
+
+```bash
+browse open http://127.0.0.1:3000 --session probe --local --headed
+browse eval --session probe '(async()=>{const mc=document.modelContext;const t=(await mc.getTools()).find(x=>x.name==="my_tool");try{return "ACCEPTED "+JSON.stringify(await mc.executeTool(t,JSON.stringify({/* probe input */})));}catch(e){return "REJECTED";}})()'
+browse screenshot --session probe --path /tmp/effect.png
+```
+
+Three things will cost time otherwise: `browse open` defaults to a **cloud** browser that cannot reach localhost, so `--local` is required; `browse eval` reliably accepts only single-line scripts, so run one probe per command; and `executeTool` takes the tool **object** plus arguments as a **JSON string** — a plain object fails with "Failed to parse input arguments".
+
+Assert on rejected-versus-accepted, not on error text. The WebMCP layer replaces a handler's message with a generic invocation-failed string, so a precise reason never reaches the caller.
+
+Use the discovered `tool.inputSchema` as the thing under test, not as the source of truth. For each tool, probe:
+
+- **Schema closure.** Invoke with an extra field the schema does not declare. A tool honoring §3 rejects it. Acceptance means the closed contract is decorative.
+- **Required fields.** Omit a `required` property. The invocation must fail; a `Completed` status carrying a null or partial result is worse than an error, because the agent believes it succeeded.
+- **Types and constraints.** Send a string where the schema says `number`, an out-of-range value against `minimum`/`maximum`, and a value outside an `enum`. Silent coercion or echo-back means the handler never validated.
+- **Error honesty.** Confirm a tool that should fail reports a non-`Completed` status rather than returning a success-shaped body.
+- **Annotation honesty.** Compare each tool's real `annotations` against the risk you assigned in step 3. A pure lookup advertising `readOnly: false`, or a mutating tool advertising `readOnly: true`, is a defect even though discovery passes.
+- **Clean rejection.** After the malformed probes above, re-read the application's state. A rejected call must leave nothing behind; partial state from a half-applied invocation is a defect the accept/reject result alone will not surface.
+- **Consequential gating.** Never invoke these. Verify the tool declares its risk, that no declarative `toolautosubmit` is present, and that the app's own confirmation control still stands between the agent and the effect.
+
+Then verify the **effect**, not the return value. Invoke the tool, then inspect the application independently — DOM assertions for rendered state, a screenshot when the surface is a canvas or chart. A handler that returns `{saved: true}` without changing anything passes step 5 and fails here. When the surface has no readable DOM, have the tool read back from the application's real store so the returned value is grounded in actual state rather than composed by the executor.
+
+Treat every discrepancy as a defect in the application or the tool contract, and fix it there. Do not loosen a schema, downgrade an annotation, or delete a probe to make this step pass.
+
+## 7. Report the result
+
+List the capabilities considered and explain exclusions. For each implemented tool, report its contract, backing code path, risk/confirmation treatment, actual Stagehand discovery/invocation result, and the step 6 adversarial probes it survived. State any environment or browser support not tested.
 
 For a comparative benchmark, quality audit, or scored evaluation, read [references/quality-rubric.md](references/quality-rubric.md). Apply its qualification gates before reporting numerical scores; do not let a high diagnostic score hide fabricated behavior, an unsafe consequence boundary, or missing production discovery.
