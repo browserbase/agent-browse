@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -293,8 +294,19 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (invokedPath === fileURLToPath(import.meta.url)) {
+// Resolve symlinks on both sides: skills are commonly installed as a symlink
+// (~/.claude/skills/<name> -> the real directory), and path.resolve alone leaves
+// the link intact, so the two paths never match and the scanner exits silently.
+const resolveReal = (value) => {
+  try {
+    return realpathSync(value);
+  } catch {
+    return value;
+  }
+};
+
+const invokedPath = process.argv[1] ? resolveReal(path.resolve(process.argv[1])) : "";
+if (invokedPath === resolveReal(fileURLToPath(import.meta.url))) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

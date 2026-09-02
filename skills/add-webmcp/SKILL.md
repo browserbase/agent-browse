@@ -12,6 +12,8 @@ Turn capabilities already implemented by a web app into maintained, first-party 
 
 Compatibility: the bundled Stagehand validator requires Node.js 22.18 or newer. Validation needs Chrome/Chromium locally or `BROWSERBASE_API_KEY` for a publicly reachable preview.
 
+Be verbose as you work: report what each step found as you go, not only in the final report.
+
 Use `webmcp-gen` instead when the requested output is a standalone init script derived from a live URL. This skill starts from source code and integrates tools into the application.
 
 ## 1. Establish the application boundary
