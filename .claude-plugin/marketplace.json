@@ -55,6 +55,22 @@
       ]
     },
     {
+      "name": "playwright-healer",
+      "source": "./",
+      "description": "Repair existing TypeScript or Python Playwright workflows by iterating on the real code with evidence from traced Browserbase executions, then verify the actual repaired entry point in a fresh session.",
+      "version": "0.0.1",
+      "author": {
+        "name": "Browserbase"
+      },
+      "category": "automation",
+      "keywords": ["playwright", "self-healing", "debugging", "browser-trace", "cdp", "browserbase"],
+      "strict": false,
+      "skills": [
+        "./skills/playwright-healer",
+        "./skills/browser-trace"
+      ]
+    },
+    {
       "name": "safe-browser",
       "source": "./",
       "description": "Build local constrained-browser agents with a safe_browser tool that owns CDP, enforces a domain allowlist with Fetch interception, and lets a runtime Claude Agent SDK agent complete browsing tasks without raw browser, shell, or CDP access.",
