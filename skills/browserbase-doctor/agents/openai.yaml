@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browserbase Doctor"
+  short_description: "Diagnose Browserbase session failures"
+  default_prompt: "Use $browserbase-doctor to diagnose this Browserbase session and recommend evidence-backed fixes."
